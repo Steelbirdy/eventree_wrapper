@@ -15,6 +15,23 @@ impl<T> SimpleTokens<T> {
     pub fn new(kinds: Box<[T]>, starts: Box<[TextSize]>) -> Self {
         Self { kinds, starts }
     }
+
+    pub fn kinds(&self) -> impl Iterator<Item = &T> {
+        self.kinds.iter()
+    }
+
+    pub fn ranges(&self) -> impl Iterator<Item = TextRange> + '_ {
+        self.starts
+            .windows(2)
+            .map(|w| match *w {
+                [start, end] => TextRange::new(start, end),
+                _ => unreachable!(),
+            })
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (TextRange, &T)> {
+        self.ranges().zip(self.kinds())
+    }
 }
 
 #[cfg(feature = "logos")]
