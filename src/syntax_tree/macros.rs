@@ -38,14 +38,12 @@ macro_rules! ast_node {
         impl $crate::syntax_tree::AstNode<$Config> for $kind {
             #[allow(unreachable_patterns)]
             fn cast(node: $crate::eventree::SyntaxNode<$Config>, tree: &$crate::eventree::SyntaxTree<$Config>) -> Option<Self> {
-                match node.kind(tree) {
-                    $(
-                    <$Config as $crate::eventree::TreeConfig>::NodeKind::$inner => {
-                        $inner::cast(node, tree).map(Self::$variant)
-                    }
-                    )+
-                    _ => None,
+                $(
+                if let Some(casted) = $inner::cast(node, tree) {
+                    return Some(Self::$variant(casted));
                 }
+                )+
+                None
             }
 
             fn syntax(self) -> $crate::eventree::SyntaxNode<$Config> {
@@ -120,14 +118,12 @@ macro_rules! ast_token {
 
         impl $crate::syntax_tree::AstToken<$Config> for $kind {
             fn cast(token: $crate::eventree::SyntaxToken<$Config>, tree: &$crate::eventree::SyntaxTree<$Config>) -> Option<Self> {
-                match token.kind(tree) {
-                    $(
-                    <$Config as $crate::eventree::TreeConfig>::TokenKind::$inner => {
-                        $inner::cast(token, tree).map(Self::$variant)
-                    }
-                    )+
-                    _ => None,
+                $(
+                if let Some(casted) = $inner::cast(token, tree) {
+                    return Some(Self::$variant(casted));
                 }
+                )+
+                None
             }
 
             fn syntax(self) -> $crate::eventree::SyntaxToken<$Config> {

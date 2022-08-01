@@ -4,7 +4,6 @@ use eventree_wrapper::{
     parser::{self, ParseResult, SimpleTokens, TokenSet},
 };
 use logos::Logos;
-use std::fmt;
 
 fn parse(source: &str) -> ParseResult<ParseConfig> {
     let tokens = SimpleTokens::tokenize(source);
@@ -186,7 +185,7 @@ mod tests {
 
     #[test]
     fn empty() {
-        let result = check("", expect!["Root@0..0"]);
+        let result = check("", expect!["Root@0..0\n"]);
         assert!(!result.has_errors());
         let tree = result.syntax_tree();
         let root = Root::cast(tree.root(), tree).unwrap();
@@ -201,7 +200,8 @@ mod tests {
                 r#"
 Root@0..2
   Int@0..2
-    IntLiteral@0..2 "10""#
+    IntLiteral@0..2 "10"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -232,7 +232,8 @@ Root@0..7
     Whitespace@4..5 " "
     Int@5..6
       IntLiteral@5..6 "2"
-    RParen@6..7 ")""#
+    RParen@6..7 ")"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -282,7 +283,8 @@ Root@0..19
       Int@16..17
         IntLiteral@16..17 "4"
       RParen@17..18 ")"
-    RParen@18..19 ")""#
+    RParen@18..19 ")"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -305,7 +307,8 @@ Root@0..5
     Int@3..4
       IntLiteral@3..4 "2"
     RParen@4..5 ")"
-error at 1: missing operator"#]
+error at 1: missing operator
+"#]
         );
     }
 
@@ -330,7 +333,8 @@ Root@0..7
 error at 1: missing operator
 error at 3..4: expected expression but found Plus
 error at 5..6: expected RParen but found IntLiteral
-error at 6..7: expected end but found RParen"#]
+error at 6..7: expected end but found RParen
+"#]
         );
     }
 
@@ -346,7 +350,8 @@ Root@0..4
     Whitespace@2..3 " "
     RParen@3..4 ")"
 error at 2: missing expression
-error at 2: missing expression"#]
+error at 2: missing expression
+"#]
         );
     }
 
@@ -364,7 +369,8 @@ Root@0..6
       IntLiteral@3..4 "1"
     Whitespace@4..5 " "
     RParen@5..6 ")"
-error at 4: missing expression"#]
+error at 4: missing expression
+"#]
         );
     }
 
@@ -387,7 +393,8 @@ Root@0..9
   Whitespace@7..8 " "
   Error@8..9
     IntLiteral@8..9 "1"
-error at 8..9: expected end but found IntLiteral"#]
+error at 8..9: expected end but found IntLiteral
+"#]
         );
     }
 }

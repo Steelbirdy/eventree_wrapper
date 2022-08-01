@@ -8,10 +8,8 @@ use std::fmt;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
 
-const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. This can only occur when calling\
-`Parser::error_without_skipping` or `Parser::error_with_only_recovery_set`. It is recommended to use\
-`Parser::expect` and friends where possible, as in general the parser should always be looking for\
-*something*.";
+const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. Use `Parser::expected` to specify\
+ what the parser expected before using `Parser::error`";
 
 pub struct Parser<C, T>
 where
@@ -129,12 +127,9 @@ where
         }
     }
 
-    pub fn custom_error<Err>(&mut self, error: Err)
-    where
-        Err: Into<ParseError<C>>,
-    {
+    pub fn custom_error(&mut self, error: C::Error) {
         self.clear_expected();
-        self.errors.push(error.into());
+        self.errors.push(ParseError::User(error));
     }
 
     pub fn error(&mut self) -> Option<CompletedMarker> {

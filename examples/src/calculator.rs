@@ -4,9 +4,8 @@ use eventree_wrapper::{
     parser::{self, CompletedMarker, ParseResult, SimpleTokens},
 };
 use logos::Logos;
-use std::fmt;
 
-pub fn parse(source: &str) -> ParseResult<ParseConfig, ParseError> {
+pub fn parse(source: &str) -> ParseResult<ParseConfig> {
     let tokens = SimpleTokens::tokenize(source);
     Parser::parse(source, &tokens, expression)
 }
@@ -233,7 +232,7 @@ ast_token! { <Cfg> IntLiteral }
 #[cfg(test)]
 mod tests {
     use super::*;
-    use eventree_wrapper::syntax_tree::{AstNode, AstToken};
+    use eventree_wrapper::syntax_tree::AstNode;
     use expect_test::{expect, Expect};
 
     fn check(source: &str, expect: Expect) -> ParseResult<ParseConfig> {
@@ -244,7 +243,7 @@ mod tests {
 
     #[test]
     fn empty() {
-        let result = check("", expect!["Root@0..0"]);
+        let result = check("", expect!["Root@0..0\n"]);
         assert!(!result.has_errors());
         let tree = result.syntax_tree();
         let root = Root::cast(tree.root(), tree).unwrap();
@@ -259,7 +258,8 @@ mod tests {
                 r#"
 Root@0..3
   Int@0..3
-    IntLiteral@0..3 "107""#
+    IntLiteral@0..3 "107"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -284,7 +284,8 @@ Root@0..3
   PrefixExpr@0..3
     Minus@0..1 "-"
     Int@1..3
-      IntLiteral@1..3 "73""#
+      IntLiteral@1..3 "73"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -314,7 +315,8 @@ Root@0..5
     Plus@2..3 "+"
     Whitespace@3..4 " "
     Int@4..5
-      IntLiteral@4..5 "2""#
+      IntLiteral@4..5 "2"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -351,7 +353,8 @@ Root@0..9
     Minus@6..7 "-"
     Whitespace@7..8 " "
     Int@8..9
-      IntLiteral@8..9 "6""#
+      IntLiteral@8..9 "6"
+"#
             ],
         );
         assert!(!result.has_errors());
@@ -377,7 +380,8 @@ Root@0..6
   Error@5..6
     IntLiteral@5..6 "1"
 error at 3..4: expected operand but found Plus
-error at 5..6: expected end but found IntLiteral"#]
+error at 5..6: expected end but found IntLiteral
+"#]
         );
     }
 }
