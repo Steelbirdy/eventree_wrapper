@@ -2,13 +2,13 @@ use crate::parser::{ParseConfig, ParseError};
 use eventree::SyntaxTree;
 use std::fmt;
 
-pub struct ParseResult<C: ParseConfig, E> {
+pub struct ParseResult<C: ParseConfig> {
     syntax_tree: SyntaxTree<C>,
-    errors: Vec<ParseError<C, E>>,
+    errors: Vec<ParseError<C>>,
 }
 
-impl<C: ParseConfig, E> ParseResult<C, E> {
-    pub(crate) fn new(syntax_tree: SyntaxTree<C>, errors: Vec<ParseError<C, E>>) -> Self {
+impl<C: ParseConfig> ParseResult<C> {
+    pub(crate) fn new(syntax_tree: SyntaxTree<C>, errors: Vec<ParseError<C>>) -> Self {
         Self {
             syntax_tree,
             errors,
@@ -26,7 +26,7 @@ impl<C: ParseConfig, E> ParseResult<C, E> {
     }
 
     #[must_use]
-    pub fn errors(&self) -> &[ParseError<C, E>] {
+    pub fn errors(&self) -> &[ParseError<C>] {
         &self.errors
     }
 
@@ -36,15 +36,15 @@ impl<C: ParseConfig, E> ParseResult<C, E> {
     }
 
     #[must_use]
-    pub fn into_parts(self) -> (SyntaxTree<C>, Vec<ParseError<C, E>>) {
+    pub fn into_parts(self) -> (SyntaxTree<C>, Vec<ParseError<C>>) {
         (self.syntax_tree, self.errors)
     }
 }
 
-impl<C: ParseConfig, E> fmt::Display for ParseResult<C, E>
+impl<C: ParseConfig> fmt::Debug for ParseResult<C>
 where
     SyntaxTree<C>: fmt::Debug,
-    ParseError<C, E>: fmt::Display,
+    ParseError<C>: fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tree = format!("{:#?}", self.syntax_tree);

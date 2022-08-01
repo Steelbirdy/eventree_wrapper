@@ -29,7 +29,7 @@ where
         }
     }
 
-    pub(crate) fn finish<E>(mut self, errors: Vec<ParseError<C, E>>) -> ParseResult<C, E> {
+    pub(crate) fn finish(mut self, errors: Vec<ParseError<C>>) -> ParseResult<C> {
         assert!(matches!(self.events.first(), Some(Event::StartNode { .. })));
         assert!(matches!(self.events.last(), Some(Event::FinishNode)));
 

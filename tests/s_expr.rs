@@ -1,20 +1,12 @@
 use eventree_wrapper::parser::{self, SimpleTokens, TokenSet};
 use expect_test::{expect, Expect};
 use logos::Logos;
-use std::{fmt, mem};
+use std::mem;
 
 #[cfg(not(feature = "logos"))]
 use eventree::TextSize;
 
-type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>, CustomError>;
-
-enum CustomError {}
-
-impl fmt::Display for CustomError {
-    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unreachable!()
-    }
-}
+type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>>;
 
 lazy_static::lazy_static! {
     static ref OPERATORS: TokenSet<TokenKind> = TokenSet::new([Plus, Star]);
@@ -120,7 +112,9 @@ impl eventree::TreeConfig for ParseConfig {
 }
 
 impl parser::ParseConfig for ParseConfig {
-    const ERROR: Self::NodeKind = NodeKind::Error;
+    type Error = std::convert::Infallible;
+
+    const ERROR_NODE_KIND: Self::NodeKind = NodeKind::Error;
 
     fn is_trivia(kind: &Self::TokenKind) -> bool {
         *kind == Whitespace
@@ -136,7 +130,7 @@ impl parser::ParseConfig for ParseConfig {
 fn check(source: &str, expect: Expect) {
     let tokens = SimpleTokens::tokenize(source);
     let result = Parser::parse(source, &tokens, root);
-    expect.assert_eq(&format!("{}", result));
+    expect.assert_debug_eq(&result);
 }
 
 #[cfg(not(feature = "logos"))]
@@ -164,7 +158,8 @@ fn atom() {
             r#"
 Root@0..1
   Atom@0..1
-    Int@0..1 "1""#
+    Int@0..1 "1"
+"#
         ],
     );
 }
@@ -185,7 +180,8 @@ Root@0..7
     Whitespace@4..5 " "
     Atom@5..6
       Int@5..6 "2"
-    RParen@6..7 ")""#
+    RParen@6..7 ")"
+"#
         ],
     );
 }
@@ -222,7 +218,8 @@ Root@0..19
       Atom@16..17
         Int@16..17 "2"
       RParen@17..18 ")"
-    RParen@18..19 ")""#
+    RParen@18..19 ")"
+"#
         ],
     );
 }

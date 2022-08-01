@@ -13,7 +13,7 @@ const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. This can only occ
 `Parser::expect` and friends where possible, as in general the parser should always be looking for\
 *something*.";
 
-pub struct Parser<C, T, E>
+pub struct Parser<C, T>
 where
     C: ParseConfig,
     C::TokenKind: Copy + PartialEq,
@@ -21,13 +21,13 @@ where
 {
     tokens: T,
     events: Vec<Option<Event<C>>>,
-    errors: Vec<ParseError<C, E>>,
+    errors: Vec<ParseError<C>>,
     token_idx: usize,
     expected: Option<ExpectedKind<C>>,
     expected_state: Rc<Cell<ExpectedState>>,
 }
 
-impl<C, T, E> Parser<C, T, E>
+impl<C, T> Parser<C, T>
 where
     C: ParseConfig,
     C::TokenKind: Copy + PartialEq,
@@ -36,7 +36,7 @@ where
 {
     /// # Panics
     /// This is here to satisfy clippy until I get around to writing proper docs
-    pub fn parse<G>(source: &str, tokens: T, grammar: G) -> ParseResult<C, E>
+    pub fn parse<G>(source: &str, tokens: T, grammar: G) -> ParseResult<C>
     where
         G: FnOnce(&mut Self),
     {
@@ -131,7 +131,7 @@ where
 
     pub fn custom_error<Err>(&mut self, error: Err)
     where
-        Err: Into<ParseError<C, E>>,
+        Err: Into<ParseError<C>>,
     {
         self.clear_expected();
         self.errors.push(error.into());
@@ -179,7 +179,7 @@ where
 
         let marker = self.start();
         self.bump();
-        Some(self.complete(marker, C::ERROR))
+        Some(self.complete(marker, C::ERROR_NODE_KIND))
     }
 
     #[must_use = "the drop guard must stay in scope to be useful. Try `let _guard = ...`"]

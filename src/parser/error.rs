@@ -2,7 +2,7 @@ use crate::parser::{ExpectedKind, ParseConfig, TokenSet};
 use eventree::{TextRange, TextSize};
 use std::fmt;
 
-pub enum ParseError<C: ParseConfig, E> {
+pub enum ParseError<C: ParseConfig> {
     Missing {
         expected: ExpectedKind<C>,
         offset: TextSize,
@@ -12,19 +12,13 @@ pub enum ParseError<C: ParseConfig, E> {
         found: C::TokenKind,
         range: TextRange,
     },
-    User(E),
+    User(C::Error),
 }
 
-impl<C: ParseConfig, E> From<E> for ParseError<C, E> {
-    fn from(err: E) -> Self {
-        Self::User(err)
-    }
-}
-
-impl<C, E> fmt::Debug for ParseError<C, E>
+impl<C> fmt::Debug for ParseError<C>
 where
     C: ParseConfig,
-    E: fmt::Debug,
+    C::Error: fmt::Debug,
     ExpectedKind<C>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -49,10 +43,10 @@ where
     }
 }
 
-impl<C, E> fmt::Display for ParseError<C, E>
+impl<C> fmt::Display for ParseError<C>
 where
     C: ParseConfig,
-    E: fmt::Display,
+    C::Error: fmt::Display,
     TokenSet<C::TokenKind>: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

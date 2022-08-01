@@ -6,7 +6,7 @@ use eventree_wrapper::{
 use logos::Logos;
 use std::fmt;
 
-fn parse(source: &str) -> ParseResult<ParseConfig, ParseError> {
+fn parse(source: &str) -> ParseResult<ParseConfig> {
     let tokens = SimpleTokens::tokenize(source);
     Parser::parse(source, &tokens, s_expr)
 }
@@ -72,7 +72,9 @@ impl TreeConfig for ParseConfig {
 }
 
 impl parser::ParseConfig for ParseConfig {
-    const ERROR: Self::NodeKind = NodeKind::Error;
+    type Error = std::convert::Infallible;
+
+    const ERROR_NODE_KIND: Self::NodeKind = NodeKind::Error;
 
     fn is_trivia(kind: &Self::TokenKind) -> bool {
         *kind == TokenKind::Whitespace
@@ -83,15 +85,7 @@ impl parser::ParseConfig for ParseConfig {
     }
 }
 
-type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>, ParseError>;
-
-enum ParseError {}
-
-impl fmt::Display for ParseError {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unreachable!()
-    }
-}
+type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>>;
 
 lazy_static::lazy_static! {
     static ref OPERATORS: TokenSet<TokenKind> = {
@@ -184,10 +178,10 @@ mod tests {
     use eventree_wrapper::syntax_tree::AstNode;
     use expect_test::{expect, Expect};
 
-    fn check(source: &str, expect: Expect) -> ParseResult<ParseConfig, ParseError> {
-        let parse_result = parse(source);
-        expect.assert_eq(&format!("{parse_result}"));
-        parse_result
+    fn check(source: &str, expect: Expect) -> ParseResult<ParseConfig> {
+        let result = parse(source);
+        expect.assert_debug_eq(&result);
+        result
     }
 
     #[test]

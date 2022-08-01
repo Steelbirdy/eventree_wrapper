@@ -6,17 +6,8 @@ use eventree_wrapper::{
     parser::{self, ParseConfig, SimpleTokens, TokenSet, Tokens},
 };
 use expect_test::expect;
-use std::fmt;
 
-enum CustomError {}
-
-impl fmt::Display for CustomError {
-    fn fmt(&self, _: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unreachable!()
-    }
-}
-
-type Parser<T> = parser::Parser<TreeConfig, T, CustomError>;
+type Parser<T> = parser::Parser<TreeConfig, T>;
 
 fn grammar_root<T: Tokens<TokenKind = TokenKind>>(p: &mut Parser<T>) {
     let marker = p.start();
@@ -46,7 +37,9 @@ type Cfg = TreeConfig;
 ast_node!(<Cfg> Root);
 
 impl ParseConfig for TreeConfig {
-    const ERROR: Self::NodeKind = NodeKind::Error;
+    type Error = std::convert::Infallible;
+
+    const ERROR_NODE_KIND: Self::NodeKind = NodeKind::Error;
 
     fn is_trivia(_: &Self::TokenKind) -> bool {
         false
@@ -63,5 +56,5 @@ fn empty() {
     let tokens = SimpleTokens::tokenize("");
     let result = Parser::parse("", &tokens, grammar_root);
     assert!(!result.has_errors());
-    expect!["Root@0..0"].assert_eq(&format!("{result}"));
+    expect!["Root@0..0\n"].assert_debug_eq(&result);
 }

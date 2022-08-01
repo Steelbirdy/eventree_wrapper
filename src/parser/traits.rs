@@ -2,7 +2,9 @@ use crate::parser::TokenSet;
 use eventree::TextRange;
 
 pub trait ParseConfig: eventree::TreeConfig {
-    const ERROR: Self::NodeKind;
+    type Error;
+
+    const ERROR_NODE_KIND: Self::NodeKind;
 
     fn is_trivia(kind: &Self::TokenKind) -> bool;
 
