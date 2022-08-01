@@ -1,7 +1,5 @@
 mod macros;
 
-pub use eventree;
-
 use eventree::{SyntaxNode, SyntaxToken, SyntaxTree, TextRange, TreeConfig};
 
 pub trait AstNode<C: TreeConfig>: Copy + Sized {

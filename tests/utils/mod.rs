@@ -3,7 +3,7 @@ macro_rules! configure {
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
         pub enum $Config {}
 
-        impl ::eventree_wrapper::syntax_tree::eventree::TreeConfig for $Config {
+        impl ::eventree_wrapper::eventree::TreeConfig for $Config {
             type NodeKind = $NodeKind;
             type TokenKind = $TokenKind;
         }
@@ -22,7 +22,7 @@ macro_rules! configure {
         }
 
         #[allow(clippy::cast_possible_truncation)]
-        unsafe impl ::eventree_wrapper::syntax_tree::eventree::SyntaxKind for $TokenKind {
+        unsafe impl ::eventree_wrapper::eventree::SyntaxKind for $TokenKind {
             fn to_raw(self) -> u16 {
                 self as u16
             }
@@ -33,7 +33,7 @@ macro_rules! configure {
         }
 
         #[allow(clippy::cast_possible_truncation)]
-        unsafe impl ::eventree_wrapper::syntax_tree::eventree::SyntaxKind for $NodeKind {
+        unsafe impl ::eventree_wrapper::eventree::SyntaxKind for $NodeKind {
             fn to_raw(self) -> u16 {
                 self as u16
             }

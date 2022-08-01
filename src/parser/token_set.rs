@@ -64,23 +64,25 @@ where
     }
 
     #[must_use]
-    pub fn with(self, kind: T) -> Self {
-        Self::_new(self.flags | mask(kind))
+    pub fn with(mut self, kind: T) -> Self {
+        self.insert(kind);
+        self
     }
 
     #[must_use]
-    pub fn without(self, kind: T) -> Self {
-        Self::_new(self.flags & !mask(kind))
+    pub fn without(mut self, kind: T) -> Self {
+        self.remove(kind);
+        self
     }
 
     pub fn insert(&mut self, kind: T) {
         self.flags |= mask(kind);
     }
-    
+
     pub fn remove(&mut self, kind: T) {
         self.flags &= !mask(kind);
     }
-    
+
     #[must_use]
     pub fn kinds(self) -> Kinds<T> {
         Kinds {
@@ -94,10 +96,6 @@ where
 #[allow(clippy::needless_pass_by_value)]
 fn mask<T: SyntaxKind>(kind: T) -> u64 {
     1_u64.checked_shl(kind.to_raw().into()).expect("")
-}
-
-unsafe fn unmask<T: SyntaxKind>(raw: u16) -> T {
-    T::from_raw(raw)
 }
 
 impl<T: SyntaxKind> From<T> for TokenSet<T> {
@@ -169,9 +167,10 @@ where
         // * Firstly, the `as` cast will never truncate because `index`
         //  is at most 64.
         // * The only way for a bit to be set in `flags` is for a variant
-        //  with that discriminant to exist.
-        //  Hence this is safe as long as `SyntaxKind` is correctly implemented.
-        let value = unsafe { unmask(self.index as u16 - 1) };
+        //  with that discriminant to exist. Hence this is safe as long as
+        // `SyntaxKind` is correctly implemented on `T`.
+        #[allow(clippy::cast_possible_truncation)]
+        let value = unsafe { T::from_raw(self.index as u16 - 1) };
         Some(value)
     }
 }
@@ -284,6 +283,14 @@ mod tests {
     }
 
     #[test]
+    fn kinds_with_only_first_variant() {
+        let set = TokenSet::new([Kind::V0]);
+        let mut kinds = set.kinds();
+        assert_eq!(kinds.next(), Some(Kind::V0));
+        assert!(kinds.next().is_none());
+    }
+
+    #[test]
     fn kinds_with_all() {
         let set = TokenSet::<Kind>::ALL;
         let mut kinds = set.kinds();
@@ -291,5 +298,27 @@ mod tests {
             assert_eq!(format!("{:?}", kinds.next()), format!("Some(V{i})"));
         }
         assert!(kinds.next().is_none());
+    }
+
+    #[test]
+    fn insert() {
+        let mut set = TokenSet::new([Kind::V10]);
+        set.insert(Kind::V11);
+        assert_eq!(set.kinds().collect::<Vec<_>>(), [Kind::V10, Kind::V11]);
+    }
+
+    #[test]
+    fn remove() {
+        let mut set = TokenSet::new([Kind::V0, Kind::V63]);
+        set.remove(Kind::V0);
+        assert_eq!(set.kinds().collect::<Vec<_>>(), [Kind::V63]);
+    }
+
+    #[test]
+    fn kinds_len() {
+        assert_eq!(TokenSet::<Kind>::EMPTY.kinds().len(), 0);
+        assert_eq!(TokenSet::<Kind>::ALL.kinds().len(), 64);
+        let set = TokenSet::new([Kind::V7, Kind::V61, Kind::V22]);
+        assert_eq!(set.kinds().len(), 3);
     }
 }
