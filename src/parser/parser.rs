@@ -70,9 +70,13 @@ where
 
     pub fn is_at(&mut self, kind: C::TokenKind) -> bool {
         if let ExpectedState::Unnamed = self.expected_state.get() {
-            self.expected = Some(ExpectedKind::Unnamed(kind));
+            match &mut self.expected {
+                Some(expected) => expected.add(kind),
+                x @ None => {
+                    *x = Some(ExpectedKind::Unnamed(kind));
+                }
+            }
         }
-
         self.skip_trivia();
         self.is_at_raw(kind)
     }
@@ -130,6 +134,7 @@ where
     where
         Err: Into<ParseError<C, E>>,
     {
+        self.clear_expected();
         self.errors.push(error.into());
     }
 
@@ -164,15 +169,13 @@ where
                 expected,
                 offset: range.end(),
             });
-
             return None;
         }
 
-        let token_idx = self.token_idx;
         self.errors.push(ParseError::Unexpected {
             expected,
-            found: self.tokens.kind(token_idx),
-            range: self.tokens.range(token_idx),
+            found: self.tokens.kind(self.token_idx),
+            range: self.tokens.range(self.token_idx),
         });
 
         let marker = self.start();
@@ -261,6 +264,22 @@ pub enum ExpectedKind<C: ParseConfig> {
     Named(&'static str),
     Unnamed(C::TokenKind),
     AnyUnnamed(TokenSet<C::TokenKind>),
+}
+
+impl<C: ParseConfig> ExpectedKind<C>
+where
+    C::TokenKind: Copy,
+{
+    fn add(&mut self, kind: C::TokenKind) {
+        match self {
+            Self::Named(_) => panic!("cannot add a TokenKind to a named ExpectedKind"),
+            Self::Unnamed(prev) => {
+                let set = TokenSet::new([kind, *prev]);
+                *self = Self::AnyUnnamed(set);
+            }
+            Self::AnyUnnamed(set) => set.insert(kind),
+        }
+    }
 }
 
 impl<C: ParseConfig> fmt::Debug for ExpectedKind<C>

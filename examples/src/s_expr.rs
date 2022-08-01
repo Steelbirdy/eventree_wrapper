@@ -117,6 +117,10 @@ fn s_expr(p: &mut Parser) {
     if !p.is_at_end() {
         expr(p);
     }
+    if !p.is_at_end() {
+        let _guard = p.expected("end");
+        p.error_with_only_recovery_set(TokenSet::EMPTY);
+    }
     p.complete(marker, NodeKind::Root);
 }
 
@@ -135,7 +139,10 @@ fn cons(p: &mut Parser) {
     assert!(p.is_at(TokenKind::LParen));
     let marker = p.start();
     p.bump();
-    p.expect_any(*OPERATORS);
+    {
+        let _guard = p.expected("operator");
+        p.expect_any_with_recovery_set(*OPERATORS, TokenSet::ALL);
+    }
     expr(p);
     expr(p);
     p.expect(TokenKind::RParen);
@@ -288,5 +295,105 @@ Root@0..19
         let tree = result.syntax_tree();
         let root = Root::cast(tree.root(), tree).unwrap();
         assert_eq!(root.text(tree), "(+ (* 1 2) (/ 3 4))");
+    }
+
+    #[test]
+    fn missing_operator() {
+        check(
+            "(1 2)",
+            expect![r#"
+Root@0..5
+  Cons@0..5
+    LParen@0..1 "("
+    Int@1..2
+      IntLiteral@1..2 "1"
+    Whitespace@2..3 " "
+    Int@3..4
+      IntLiteral@3..4 "2"
+    RParen@4..5 ")"
+error at 1: missing operator"#]
+        );
+    }
+
+    #[test]
+    fn operator_in_middle() {
+        check(
+            "(1 + 2)",
+            expect![r#"
+Root@0..7
+  Cons@0..6
+    LParen@0..1 "("
+    Int@1..2
+      IntLiteral@1..2 "1"
+    Whitespace@2..3 " "
+    Error@3..4
+      Plus@3..4 "+"
+    Whitespace@4..5 " "
+    Error@5..6
+      IntLiteral@5..6 "2"
+  Error@6..7
+    RParen@6..7 ")"
+error at 1: missing operator
+error at 3..4: expected expression but found Plus
+error at 5..6: expected RParen but found IntLiteral
+error at 6..7: expected end but found RParen"#]
+        );
+    }
+
+    #[test]
+    fn missing_lhs_and_rhs() {
+        check(
+            "(+ )",
+            expect![r#"
+Root@0..4
+  Cons@0..4
+    LParen@0..1 "("
+    Plus@1..2 "+"
+    Whitespace@2..3 " "
+    RParen@3..4 ")"
+error at 2: missing expression
+error at 2: missing expression"#]
+        );
+    }
+
+    #[test]
+    fn missing_rhs() {
+        check(
+            "(+ 1 )",
+            expect![r#"
+Root@0..6
+  Cons@0..6
+    LParen@0..1 "("
+    Plus@1..2 "+"
+    Whitespace@2..3 " "
+    Int@3..4
+      IntLiteral@3..4 "1"
+    Whitespace@4..5 " "
+    RParen@5..6 ")"
+error at 4: missing expression"#]
+        );
+    }
+
+    #[test]
+    fn extra_tokens() {
+        check(
+            "(+ 1 1) 1",
+            expect![r#"
+Root@0..9
+  Cons@0..7
+    LParen@0..1 "("
+    Plus@1..2 "+"
+    Whitespace@2..3 " "
+    Int@3..4
+      IntLiteral@3..4 "1"
+    Whitespace@4..5 " "
+    Int@5..6
+      IntLiteral@5..6 "1"
+    RParen@6..7 ")"
+  Whitespace@7..8 " "
+  Error@8..9
+    IntLiteral@8..9 "1"
+error at 8..9: expected end but found IntLiteral"#]
+        );
     }
 }

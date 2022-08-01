@@ -73,6 +73,14 @@ where
         Self::_new(self.flags & !mask(kind))
     }
 
+    pub fn insert(&mut self, kind: T) {
+        self.flags |= mask(kind);
+    }
+    
+    pub fn remove(&mut self, kind: T) {
+        self.flags &= !mask(kind);
+    }
+    
     #[must_use]
     pub fn kinds(self) -> Kinds<T> {
         Kinds {

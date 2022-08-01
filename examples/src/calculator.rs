@@ -14,7 +14,12 @@ pub fn parse(source: &str) -> ParseResult<ParseConfig, ParseError> {
 fn expression(p: &mut Parser) {
     let marker = p.start();
     if !p.is_at_end() {
+        let _guard = p.expected("expression");
         expr(p, BindPower::MIN, TokenSet::EMPTY);
+    }
+    if !p.is_at_end() {
+        let _guard = p.expected("end");
+        p.error_with_only_recovery_set(TokenSet::EMPTY);
     }
     p.complete(marker, NodeKind::Root);
 }
@@ -50,7 +55,6 @@ fn expr_lhs(p: &mut Parser) -> Option<CompletedMarker> {
     } else if p.is_at(TokenKind::IntLiteral) {
         int(p)
     } else {
-        let _guard = p.expected("expression");
         p.error()
     }
 }
@@ -360,5 +364,26 @@ Root@0..9
         let tree = result.syntax_tree();
         let root = Root::cast(tree.root(), tree).unwrap();
         assert_eq!(root.text(tree), "2 * 3 - 6");
+    }
+
+    #[test]
+    fn double_infix_operator() {
+        check(
+            "2 ++ 1",
+            expect![r#"
+Root@0..6
+  InfixExpr@0..4
+    Int@0..1
+      IntLiteral@0..1 "2"
+    Whitespace@1..2 " "
+    Plus@2..3 "+"
+    Error@3..4
+      Plus@3..4 "+"
+  Whitespace@4..5 " "
+  Error@5..6
+    IntLiteral@5..6 "1"
+error at 3..4: expected operand but found Plus
+error at 5..6: expected end but found IntLiteral"#]
+        );
     }
 }
