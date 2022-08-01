@@ -23,8 +23,8 @@ where
     tokens: T,
     events: Vec<Option<Event<C>>>,
     errors: Vec<ParseError<C, E>>,
-    token_idx: Cell<usize>,
-    expected: Cell<Option<ExpectedKind<C>>>,
+    token_idx: usize,
+    expected: Option<ExpectedKind<C>>,
     expected_state: Rc<Cell<ExpectedState>>,
 }
 
@@ -43,10 +43,10 @@ where
         let mut this = Self {
             source,
             tokens,
-            token_idx: Cell::new(0),
+            token_idx: 0,
             events: Vec::new(),
             errors: Vec::new(),
-            expected: Cell::new(None),
+            expected: None,
             expected_state: Rc::default(),
         };
         grammar(&mut this);
@@ -68,23 +68,22 @@ where
         Sink::new(events, this.source, this.tokens).finish(this.errors)
     }
 
-    pub fn is_at(&self, kind: C::TokenKind) -> bool {
+    pub fn is_at(&mut self, kind: C::TokenKind) -> bool {
         if let ExpectedState::Unnamed = self.expected_state.get() {
-            self.expected.set(Some(ExpectedKind::Unnamed(kind)));
+            self.expected = Some(ExpectedKind::Unnamed(kind));
         }
 
         self.skip_trivia();
         self.is_at_raw(kind)
     }
 
-    pub fn is_at_any(&self, set: TokenSet<C::TokenKind>) -> bool {
-        self.skip_trivia();
+    pub fn is_at_any(&mut self, set: TokenSet<C::TokenKind>) -> bool {
         self.peek().map_or(false, |kind| set.contains(kind))
     }
 
-    pub fn is_at_end(&self) -> bool {
+    pub fn is_at_end(&mut self) -> bool {
         self.skip_trivia();
-        self.tokens.is_at_end(self.token_idx.get())
+        self.tokens.is_at_end(self.token_idx)
     }
 
     pub fn expect(&mut self, kind: C::TokenKind) {
@@ -134,6 +133,10 @@ where
         self.errors.push(error.into());
     }
 
+    pub fn error(&mut self) -> Option<CompletedMarker> {
+        self.error_with_recovery_set(TokenSet::EMPTY)
+    }
+
     pub fn error_with_recovery_set(
         &mut self,
         recovery_set: TokenSet<C::TokenKind>,
@@ -143,7 +146,6 @@ where
 
     pub fn error_without_skipping(&mut self) {
         let expected = self.clear_expected().expect(NO_EXPECTED_MESSAGE);
-
         let range = self.previous_range();
         self.errors.push(ParseError::Missing {
             expected,
@@ -156,7 +158,6 @@ where
         recovery_set: TokenSet<C::TokenKind>,
     ) -> Option<CompletedMarker> {
         let expected = self.clear_expected().expect(NO_EXPECTED_MESSAGE);
-
         if self.is_at_end() || self.is_at_any(recovery_set) {
             let range = self.previous_range();
             self.errors.push(ParseError::Missing {
@@ -167,7 +168,7 @@ where
             return None;
         }
 
-        let token_idx = self.token_idx.get();
+        let token_idx = self.token_idx;
         self.errors.push(ParseError::Unexpected {
             expected,
             found: self.tokens.kind(token_idx),
@@ -179,9 +180,10 @@ where
         Some(self.complete(marker, C::ERROR))
     }
 
-    pub fn expected(&self, name: &'static str) -> ExpectedDropGuard {
+    #[must_use = "the drop guard must stay in scope to be useful. Try `let _guard = ...`"]
+    pub fn expected(&mut self, name: &'static str) -> ExpectedDropGuard {
         self.expected_state.set(ExpectedState::Named);
-        self.expected.set(Some(ExpectedKind::Named(name)));
+        self.expected = Some(ExpectedKind::Named(name));
         ExpectedDropGuard {
             state: Rc::clone(&self.expected_state),
         }
@@ -190,9 +192,10 @@ where
     pub fn bump(&mut self) {
         self.clear_expected();
         self.events.push(Some(Event::AddToken));
-        *self.token_idx.get_mut() += 1;
+        self.token_idx += 1;
     }
 
+    #[must_use = "markers must be completed before they are dropped"]
     pub fn start(&mut self) -> Marker {
         let index = self.events.len();
         self.events.push(None);
@@ -210,33 +213,42 @@ where
     }
 
     #[allow(clippy::needless_pass_by_value)]
+    #[must_use = "markers must be completed before they are dropped"]
     pub fn precede(&mut self, marker: CompletedMarker) -> Marker {
         self.events.insert(marker.index, None);
         Marker::new(marker.index)
     }
 
-    fn skip_trivia(&self) {
-        while self.peek().filter(C::is_trivia).is_some() {
-            self.token_idx.set(self.token_idx.get() + 1);
+    fn skip_trivia(&mut self) {
+        while self.peek_raw().filter(C::is_trivia).is_some() {
+            self.token_idx += 1;
         }
     }
 
     fn is_at_raw(&self, kind: C::TokenKind) -> bool {
-        self.peek() == Some(kind)
+        self.peek_raw() == Some(kind)
     }
 
-    fn peek(&self) -> Option<C::TokenKind> {
-        self.tokens.get_kind(self.token_idx.get())
+    pub fn peek(&mut self) -> Option<C::TokenKind> {
+        self.skip_trivia();
+        self.peek_raw()
+    }
+
+    fn peek_raw(&self) -> Option<C::TokenKind> {
+        self.tokens.get_kind(self.token_idx)
     }
 
     fn clear_expected(&mut self) -> Option<ExpectedKind<C>> {
-        let ret = self.expected.get_mut().take();
+        let ret = self.expected.take();
         self.expected_state.set(ExpectedState::Unnamed);
         ret
     }
 
     fn previous_range(&self) -> TextRange {
-        let mut prev_idx = self.token_idx.get() - 1;
+        if self.token_idx == 0 {
+            return TextRange::empty(0.into());
+        }
+        let mut prev_idx = self.token_idx - 1;
         while C::is_trivia(&self.tokens.kind(prev_idx)) {
             prev_idx -= 1;
         }

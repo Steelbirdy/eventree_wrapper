@@ -1,0 +1,292 @@
+use eventree_wrapper::{
+    ast_node, ast_token,
+    eventree::{SyntaxKind, TreeConfig},
+    parser::{self, ParseResult, SimpleTokens, TokenSet},
+};
+use logos::Logos;
+use std::fmt;
+
+fn parse(source: &str) -> ParseResult<ParseConfig, ParseError> {
+    let tokens = SimpleTokens::tokenize(source);
+    Parser::parse(source, &tokens, s_expr)
+}
+
+#[derive(Logos, Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(u8)]
+pub enum TokenKind {
+    #[token("(")]
+    LParen,
+    #[token(")")]
+    RParen,
+    #[token("+")]
+    Plus,
+    #[token("-")]
+    Minus,
+    #[token("*")]
+    Star,
+    #[token("/")]
+    Slash,
+    #[regex(r"\d+")]
+    IntLiteral,
+    #[regex(r"[ \t\r\n]+")]
+    Whitespace,
+    #[error]
+    Error,
+}
+
+unsafe impl SyntaxKind for TokenKind {
+    fn to_raw(self) -> u16 {
+        self as u16
+    }
+
+    unsafe fn from_raw(raw: u16) -> Self {
+        std::mem::transmute(raw as u8)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(u8)]
+pub enum NodeKind {
+    Root,
+    Cons,
+    Int,
+    Error,
+}
+
+unsafe impl SyntaxKind for NodeKind {
+    fn to_raw(self) -> u16 {
+        self as u16
+    }
+
+    unsafe fn from_raw(raw: u16) -> Self {
+        std::mem::transmute(raw as u8)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub enum ParseConfig {}
+
+impl TreeConfig for ParseConfig {
+    type NodeKind = NodeKind;
+    type TokenKind = TokenKind;
+}
+
+impl parser::ParseConfig for ParseConfig {
+    const ERROR: Self::NodeKind = NodeKind::Error;
+
+    fn is_trivia(kind: &Self::TokenKind) -> bool {
+        *kind == TokenKind::Whitespace
+    }
+
+    fn default_recovery_set() -> TokenSet<Self::TokenKind> {
+        TokenSet::new([TokenKind::RParen])
+    }
+}
+
+type Parser<'a, 'b> = parser::Parser<'a, ParseConfig, &'b SimpleTokens<TokenKind>, ParseError>;
+
+enum ParseError {}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unreachable!()
+    }
+}
+
+lazy_static::lazy_static! {
+    static ref OPERATORS: TokenSet<TokenKind> = {
+        const OPERATORS: [TokenKind; 4] = [
+            TokenKind::Plus,
+            TokenKind::Minus,
+            TokenKind::Star,
+            TokenKind::Slash,
+        ];
+        TokenSet::new(OPERATORS)
+    };
+
+    static ref ATOM_START: TokenSet<TokenKind> = {
+        const ATOM_START: [TokenKind; 1] = [
+            TokenKind::IntLiteral,
+        ];
+        TokenSet::new(ATOM_START)
+    };
+}
+
+fn s_expr(p: &mut Parser) {
+    let marker = p.start();
+    if !p.is_at_end() {
+        expr(p);
+    }
+    p.complete(marker, NodeKind::Root);
+}
+
+fn expr(p: &mut Parser) {
+    if p.is_at(TokenKind::LParen) {
+        cons(p)
+    } else if p.is_at(TokenKind::IntLiteral) {
+        int(p)
+    } else {
+        let _guard = p.expected("expression");
+        p.error();
+    }
+}
+
+fn cons(p: &mut Parser) {
+    assert!(p.is_at(TokenKind::LParen));
+    let marker = p.start();
+    p.bump();
+    p.expect_any(*OPERATORS);
+    expr(p);
+    expr(p);
+    p.expect(TokenKind::RParen);
+    p.complete(marker, NodeKind::Cons);
+}
+
+fn int(p: &mut Parser) {
+    assert!(p.is_at(TokenKind::IntLiteral));
+    let marker = p.start();
+    p.bump();
+    p.complete(marker, NodeKind::Int);
+}
+
+type Cfg = ParseConfig;
+
+ast_node! { <Cfg> Root
+    fn expr = node(Expr);
+}
+ast_node! { <Cfg> Expr => [Cons(Cons), Int(Int)] }
+ast_node! { <Cfg> Cons
+    fn op = token(Operator);
+    fn lhs = node(Expr);
+    fn rhs = nodes(Expr).nth(1) -> { Option<Expr> };
+}
+ast_node! { <Cfg> Int
+    fn value = token(IntLiteral);
+}
+
+ast_token! { <Cfg> Operator => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
+ast_token! { <Cfg> Plus }
+ast_token! { <Cfg> Minus }
+ast_token! { <Cfg> Star }
+ast_token! { <Cfg> Slash }
+ast_token! { <Cfg> IntLiteral }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use eventree_wrapper::syntax_tree::AstNode;
+    use expect_test::{expect, Expect};
+
+    fn check(source: &str, expect: Expect) -> ParseResult<ParseConfig, ParseError> {
+        let parse_result = parse(source);
+        expect.assert_eq(&format!("{parse_result}"));
+        parse_result
+    }
+
+    #[test]
+    fn empty() {
+        let result = check("", expect!["Root@0..0"]);
+        assert!(!result.has_errors());
+        let tree = result.syntax_tree();
+        let root = Root::cast(tree.root(), tree).unwrap();
+        assert_eq!(root.text(tree), "");
+    }
+
+    #[test]
+    fn int() {
+        let result = check(
+            "10",
+            expect![
+                r#"
+Root@0..2
+  Int@0..2
+    IntLiteral@0..2 "10""#
+            ],
+        );
+        assert!(!result.has_errors());
+        let tree = result.syntax_tree();
+        let root = Root::cast(tree.root(), tree).unwrap();
+        assert_eq!(root.text(tree), "10");
+
+        let int = match root.expr(tree) {
+            Some(Expr::Int(x)) => x,
+            _ => unreachable!(),
+        };
+        assert_eq!(int.text(tree), "10");
+    }
+
+    #[test]
+    fn cons() {
+        let result = check(
+            "(+ 1 2)",
+            expect![
+                r#"
+Root@0..7
+  Cons@0..7
+    LParen@0..1 "("
+    Plus@1..2 "+"
+    Whitespace@2..3 " "
+    Int@3..4
+      IntLiteral@3..4 "1"
+    Whitespace@4..5 " "
+    Int@5..6
+      IntLiteral@5..6 "2"
+    RParen@6..7 ")""#
+            ],
+        );
+        assert!(!result.has_errors());
+        let tree = result.syntax_tree();
+        let root = Root::cast(tree.root(), tree).unwrap();
+        assert_eq!(root.text(tree), "(+ 1 2)");
+
+        let cons = match root.expr(tree) {
+            Some(Expr::Cons(c)) => c,
+            _ => unreachable!(),
+        };
+
+        assert!(matches!(cons.op(tree), Some(Operator::Add(_))));
+        assert!(matches!(cons.lhs(tree), Some(Expr::Int(_))));
+        assert!(matches!(cons.rhs(tree), Some(Expr::Int(_))));
+    }
+
+    #[test]
+    fn nested_cons() {
+        let result = check(
+            "(+ (* 1 2) (/ 3 4))",
+            expect![
+                r#"
+Root@0..19
+  Cons@0..19
+    LParen@0..1 "("
+    Plus@1..2 "+"
+    Whitespace@2..3 " "
+    Cons@3..10
+      LParen@3..4 "("
+      Star@4..5 "*"
+      Whitespace@5..6 " "
+      Int@6..7
+        IntLiteral@6..7 "1"
+      Whitespace@7..8 " "
+      Int@8..9
+        IntLiteral@8..9 "2"
+      RParen@9..10 ")"
+    Whitespace@10..11 " "
+    Cons@11..18
+      LParen@11..12 "("
+      Slash@12..13 "/"
+      Whitespace@13..14 " "
+      Int@14..15
+        IntLiteral@14..15 "3"
+      Whitespace@15..16 " "
+      Int@16..17
+        IntLiteral@16..17 "4"
+      RParen@17..18 ")"
+    RParen@18..19 ")""#
+            ],
+        );
+        assert!(!result.has_errors());
+        let tree = result.syntax_tree();
+        let root = Root::cast(tree.root(), tree).unwrap();
+        assert_eq!(root.text(tree), "(+ (* 1 2) (/ 3 4))");
+    }
+}
