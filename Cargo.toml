@@ -5,5 +5,15 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = ["parser"]
+[features]
+logos = ["dep:logos"]
+
+[dependencies]
+drop_bomb = "0.1.5"
+eventree = "0.6"
+logos = { version = "0.12", optional = true }
+
+[dev-dependencies]
+expect-test = "1.4"
+lazy_static = "1.4"
+logos = { version = "0.12", optional = false }

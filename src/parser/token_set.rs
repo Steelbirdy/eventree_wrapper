@@ -1,9 +1,6 @@
-use num_traits::{FromPrimitive, ToPrimitive};
+use eventree::SyntaxKind;
 use std::fmt;
 use std::marker::PhantomData;
-
-const CONVERSION_FAIL_MESSAGE: &str =
-    "converting the enum into a `u64` failed, are there too many variants?";
 
 pub struct TokenSet<T> {
     flags: u64,
@@ -50,7 +47,7 @@ impl<T> TokenSet<T> {
 
 impl<T> TokenSet<T>
 where
-    T: ToPrimitive,
+    T: SyntaxKind,
 {
     #[must_use]
     pub fn new<const N: usize>(kinds: [T; N]) -> Self {
@@ -75,12 +72,7 @@ where
     pub fn without(self, kind: T) -> Self {
         Self::_new(self.flags & !mask(kind))
     }
-}
 
-impl<T> TokenSet<T>
-where
-    T: FromPrimitive,
-{
     #[must_use]
     pub fn kinds(self) -> Kinds<T> {
         Kinds {
@@ -92,12 +84,15 @@ where
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn mask<T: ToPrimitive>(kind: T) -> u64 {
-    let discriminant = kind.to_u64().expect(CONVERSION_FAIL_MESSAGE);
-    1 << discriminant
+fn mask<T: SyntaxKind>(kind: T) -> u64 {
+    1_u64.checked_shl(kind.to_raw().into()).expect("")
 }
 
-impl<T: ToPrimitive> From<T> for TokenSet<T> {
+unsafe fn unmask<T: SyntaxKind>(raw: u16) -> T {
+    T::from_raw(raw)
+}
+
+impl<T: SyntaxKind> From<T> for TokenSet<T> {
     fn from(kind: T) -> Self {
         Self::new([kind])
     }
@@ -121,7 +116,7 @@ impl<T> PartialEq for TokenSet<T> {
 
 impl<T> fmt::Debug for TokenSet<T>
 where
-    T: fmt::Debug + FromPrimitive,
+    T: fmt::Debug + SyntaxKind,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_set().entries(self.kinds()).finish()
@@ -148,7 +143,7 @@ impl<T> Kinds<T> {
 
 impl<T> Iterator for Kinds<T>
 where
-    T: FromPrimitive,
+    T: SyntaxKind,
 {
     type Item = T;
 
@@ -162,14 +157,20 @@ where
             .checked_shr(trailing_zeros + 1)
             .unwrap_or_default();
         self.index += u64::from(trailing_zeros) + 1;
-        let value = T::from_u64(self.index - 1).expect(CONVERSION_FAIL_MESSAGE);
+        // SAFETY:
+        // * Firstly, the `as` cast will never truncate because `index`
+        //  is at most 64.
+        // * The only way for a bit to be set in `flags` is for a variant
+        //  with that discriminant to exist.
+        //  Hence this is safe as long as `SyntaxKind` is correctly implemented.
+        let value = unsafe { unmask(self.index as u16 - 1) };
         Some(value)
     }
 }
 
 impl<T> ExactSizeIterator for Kinds<T>
 where
-    T: FromPrimitive,
+    T: SyntaxKind,
 {
     fn len(&self) -> usize {
         self.flags.count_ones().try_into().unwrap()
@@ -180,7 +181,9 @@ where
 mod tests {
     use super::*;
 
-    #[derive(Debug, PartialEq, ToPrimitive, FromPrimitive)]
+    #[allow(unused)]
+    #[derive(Debug, PartialEq)]
+    #[repr(u8)]
     enum Kind {
         V0,
         V1,
@@ -246,6 +249,16 @@ mod tests {
         V61,
         V62,
         V63,
+    }
+
+    unsafe impl SyntaxKind for Kind {
+        fn to_raw(self) -> u16 {
+            self as u16
+        }
+
+        unsafe fn from_raw(raw: u16) -> Self {
+            std::mem::transmute(raw as u8)
+        }
     }
 
     #[test]

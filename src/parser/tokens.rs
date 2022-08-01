@@ -1,4 +1,4 @@
-use crate::Tokens;
+use crate::parser::Tokens;
 use eventree::{TextRange, TextSize};
 
 #[cfg(feature = "logos")]

@@ -1,4 +1,4 @@
-use crate::traits::ParseConfig;
+use crate::parser::ParseConfig;
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) enum Event<C: ParseConfig> {

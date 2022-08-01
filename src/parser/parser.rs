@@ -1,13 +1,8 @@
-use crate::{
-    error::ParseError,
-    event::Event,
-    marker::{CompletedMarker, Marker},
-    result::ParseResult,
-    traits::{ParseConfig, Tokens},
-    TokenSet,
+use crate::parser::{
+    event::Event, sink::Sink, CompletedMarker, Marker, ParseConfig, ParseError, ParseResult,
+    TokenSet, Tokens,
 };
 use eventree::TextRange;
-use num_traits::ToPrimitive;
 use std::cell::Cell;
 use std::fmt;
 use std::mem::ManuallyDrop;
@@ -70,7 +65,7 @@ where
                 copied.capacity(),
             )
         };
-        crate::sink::Sink::new(events, this.source, this.tokens).finish(this.errors)
+        Sink::new(events, this.source, this.tokens).finish(this.errors)
     }
 
     pub fn is_at(&self, kind: C::TokenKind) -> bool {
@@ -82,10 +77,7 @@ where
         self.is_at_raw(kind)
     }
 
-    pub fn is_at_any(&self, set: TokenSet<C::TokenKind>) -> bool
-    where
-        C::TokenKind: ToPrimitive,
-    {
+    pub fn is_at_any(&self, set: TokenSet<C::TokenKind>) -> bool {
         self.skip_trivia();
         self.peek().map_or(false, |kind| set.contains(kind))
     }
@@ -95,17 +87,11 @@ where
         self.tokens.is_at_end(self.token_idx.get())
     }
 
-    pub fn expect(&mut self, kind: C::TokenKind)
-    where
-        C::TokenKind: ToPrimitive,
-    {
+    pub fn expect(&mut self, kind: C::TokenKind) {
         self.expect_with_recovery_set(kind, TokenSet::EMPTY);
     }
 
-    pub fn expect_any(&mut self, set: TokenSet<C::TokenKind>)
-    where
-        C::TokenKind: ToPrimitive,
-    {
+    pub fn expect_any(&mut self, set: TokenSet<C::TokenKind>) {
         self.expect_any_with_recovery_set(set, TokenSet::EMPTY);
     }
 
@@ -113,9 +99,7 @@ where
         &mut self,
         kind: C::TokenKind,
         recovery_set: TokenSet<C::TokenKind>,
-    ) where
-        C::TokenKind: ToPrimitive,
-    {
+    ) {
         if self.is_at(kind) {
             self.bump();
         } else {
@@ -127,9 +111,7 @@ where
         &mut self,
         set: TokenSet<C::TokenKind>,
         recovery_set: TokenSet<C::TokenKind>,
-    ) where
-        C::TokenKind: ToPrimitive,
-    {
+    ) {
         if self.is_at_any(set) {
             self.bump();
         } else {
@@ -155,10 +137,7 @@ where
     pub fn error_with_recovery_set(
         &mut self,
         recovery_set: TokenSet<C::TokenKind>,
-    ) -> Option<CompletedMarker>
-    where
-        C::TokenKind: ToPrimitive,
-    {
+    ) -> Option<CompletedMarker> {
         self.error_with_only_recovery_set(recovery_set.union(C::default_recovery_set()))
     }
 
@@ -175,10 +154,7 @@ where
     pub fn error_with_only_recovery_set(
         &mut self,
         recovery_set: TokenSet<C::TokenKind>,
-    ) -> Option<CompletedMarker>
-    where
-        C::TokenKind: ToPrimitive,
-    {
+    ) -> Option<CompletedMarker> {
         let expected = self.clear_expected().expect(NO_EXPECTED_MESSAGE);
 
         if self.is_at_end() || self.is_at_any(recovery_set) {

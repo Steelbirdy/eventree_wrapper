@@ -1,8 +1,6 @@
-use crate::{
-    error::ParseError,
+use crate::parser::{
     event::Event,
-    result::ParseResult,
-    traits::{ParseConfig, Tokens},
+    ParseError, ParseResult, {ParseConfig, Tokens},
 };
 
 pub(crate) struct Sink<C, T>

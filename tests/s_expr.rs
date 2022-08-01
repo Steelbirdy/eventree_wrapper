@@ -1,6 +1,10 @@
+use eventree_wrapper::parser::{self, SimpleTokens, TokenSet};
+use expect_test::{expect, Expect};
 use logos::Logos;
-use parser::{FromPrimitive, SimpleTokens, ToPrimitive, TokenSet};
 use std::{fmt, mem};
+
+#[cfg(not(feature = "logos"))]
+use eventree::TextSize;
 
 type Parser<'src, 'tok> =
     parser::Parser<'src, ParseConfig, &'tok SimpleTokens<TokenKind>, CustomError>;
@@ -49,7 +53,7 @@ fn parse_atom(p: &mut Parser) {
     p.complete(marker, NodeKind::Atom);
 }
 
-#[derive(Logos, Debug, Copy, Clone, Eq, PartialEq, ToPrimitive, FromPrimitive)]
+#[derive(Logos, Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 enum TokenKind {
     #[token("(")]
@@ -74,6 +78,7 @@ enum TokenKind {
     Error,
 }
 
+#[allow(clippy::enum_glob_use)]
 use TokenKind::*;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -85,6 +90,7 @@ enum NodeKind {
     Error,
 }
 
+#[allow(clippy::cast_possible_truncation)]
 unsafe impl eventree::SyntaxKind for TokenKind {
     fn to_raw(self) -> u16 {
         self as u16
@@ -95,6 +101,7 @@ unsafe impl eventree::SyntaxKind for TokenKind {
     }
 }
 
+#[allow(clippy::cast_possible_truncation)]
 unsafe impl eventree::SyntaxKind for NodeKind {
     fn to_raw(self) -> u16 {
         self as u16
@@ -125,53 +132,50 @@ impl parser::ParseConfig for ParseConfig {
     }
 }
 
-mod tests {
-    use super::*;
-    use eventree::TextSize;
-    use expect_test::{expect, Expect};
+#[cfg(feature = "logos")]
+#[allow(clippy::needless_pass_by_value)]
+fn check(source: &str, expect: Expect) {
+    let tokens = SimpleTokens::tokenize(source);
+    let result = Parser::parse(source, &tokens, root);
+    expect.assert_eq(&format!("{}", result));
+}
 
-    #[cfg(feature = "logos")]
-    fn check(source: &str, expect: Expect) {
-        let tokens = SimpleTokens::tokenize(source);
-        let result = Parser::parse(source, &tokens, root);
-        expect.assert_eq(&format!("{}", result));
+#[cfg(not(feature = "logos"))]
+#[allow(clippy::needless_pass_by_value)]
+fn check(source: &str, expect: Expect) {
+    let mut lexer = TokenKind::lexer(source);
+    let mut kinds = Vec::new();
+    let mut starts = Vec::new();
+    while let Some(token) = lexer.next() {
+        kinds.push(token);
+        starts.push(TextSize::from(lexer.span().start as u32));
     }
+    starts.push(TextSize::of(source));
 
-    #[cfg(not(feature = "logos"))]
-    fn check(source: &str, expect: Expect) {
-        let mut lexer = TokenKind::lexer(source);
-        let mut kinds = Vec::new();
-        let mut starts = Vec::new();
-        while let Some(token) = lexer.next() {
-            kinds.push(token);
-            starts.push(TextSize::from(lexer.span().start as u32));
-        }
-        starts.push(TextSize::of(source));
+    let tokens = SimpleTokens::new(kinds.into_boxed_slice(), starts.into_boxed_slice());
+    let result = Parser::parse(source, &tokens, root);
+    expect.assert_eq(&format!("{}", result));
+}
 
-        let tokens = SimpleTokens::new(kinds.into_boxed_slice(), starts.into_boxed_slice());
-        let result = Parser::parse(source, &tokens, root);
-        expect.assert_eq(&format!("{}", result));
-    }
-
-    #[test]
-    fn atom() {
-        check(
-            "1",
-            expect![
-                r#"
+#[test]
+fn atom() {
+    check(
+        "1",
+        expect![
+            r#"
 Root@0..1
   Atom@0..1
     Int@0..1 "1""#
-            ],
-        )
-    }
+        ],
+    );
+}
 
-    #[test]
-    fn single_cons() {
-        check(
-            "(+ 1 2)",
-            expect![
-                r#"
+#[test]
+fn single_cons() {
+    check(
+        "(+ 1 2)",
+        expect![
+            r#"
 Root@0..7
   Cons@0..7
     LParen@0..1 "("
@@ -183,16 +187,16 @@ Root@0..7
     Atom@5..6
       Int@5..6 "2"
     RParen@6..7 ")""#
-            ],
-        );
-    }
+        ],
+    );
+}
 
-    #[test]
-    fn nested_cons() {
-        check(
-            "(+ (* 2 3) (* 4 2))",
-            expect![
-                r#"
+#[test]
+fn nested_cons() {
+    check(
+        "(+ (* 2 3) (* 4 2))",
+        expect![
+            r#"
 Root@0..19
   Cons@0..19
     LParen@0..1 "("
@@ -220,7 +224,6 @@ Root@0..19
         Int@16..17 "2"
       RParen@17..18 ")"
     RParen@18..19 ")""#
-            ],
-        );
-    }
+        ],
+    );
 }

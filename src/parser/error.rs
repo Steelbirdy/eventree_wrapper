@@ -1,4 +1,4 @@
-use crate::{parser::ExpectedKind, token_set::TokenSet, traits::ParseConfig};
+use crate::parser::{ExpectedKind, ParseConfig, TokenSet};
 use eventree::{TextRange, TextSize};
 use std::fmt;
 

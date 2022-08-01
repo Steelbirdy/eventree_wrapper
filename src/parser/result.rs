@@ -1,4 +1,4 @@
-use crate::{error::ParseError, traits::ParseConfig};
+use crate::parser::{ParseConfig, ParseError};
 use eventree::SyntaxTree;
 use std::fmt;
 

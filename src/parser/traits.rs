@@ -1,4 +1,4 @@
-use crate::TokenSet;
+use crate::parser::TokenSet;
 use eventree::TextRange;
 
 pub trait ParseConfig: eventree::TreeConfig {
