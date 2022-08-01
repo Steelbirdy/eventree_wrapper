@@ -16,7 +16,7 @@ impl fmt::Display for CustomError {
     }
 }
 
-type Parser<'a, T> = parser::Parser<'a, TreeConfig, T, CustomError>;
+type Parser<T> = parser::Parser<TreeConfig, T, CustomError>;
 
 fn grammar_root<T: Tokens<TokenKind = TokenKind>>(p: &mut Parser<T>) {
     let marker = p.start();

@@ -11,7 +11,7 @@ mod traits;
 
 pub use error::ParseError;
 pub use marker::{CompletedMarker, Marker};
-pub use parser::{ExpectedDropGuard, ExpectedKind, Grammar, Parser};
+pub use parser::{ExpectedDropGuard, ExpectedKind, Parser};
 pub use result::ParseResult;
 pub use token_set::TokenSet;
 pub use tokens::SimpleTokens;

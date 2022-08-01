@@ -6,8 +6,7 @@ use std::{fmt, mem};
 #[cfg(not(feature = "logos"))]
 use eventree::TextSize;
 
-type Parser<'src, 'tok> =
-    parser::Parser<'src, ParseConfig, &'tok SimpleTokens<TokenKind>, CustomError>;
+type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>, CustomError>;
 
 enum CustomError {}
 

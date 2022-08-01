@@ -83,7 +83,7 @@ impl parser::ParseConfig for ParseConfig {
     }
 }
 
-type Parser<'a, 'b> = parser::Parser<'a, ParseConfig, &'b SimpleTokens<TokenKind>, ParseError>;
+type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>, ParseError>;
 
 enum ParseError {}
 

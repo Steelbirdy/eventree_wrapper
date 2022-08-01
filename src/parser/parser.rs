@@ -13,13 +13,12 @@ const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. This can only occ
 `Parser::expect` and friends where possible, as in general the parser should always be looking for\
 *something*.";
 
-pub struct Parser<'src, C, T, E>
+pub struct Parser<C, T, E>
 where
     C: ParseConfig,
     C::TokenKind: Copy + PartialEq,
     T: Tokens<TokenKind = C::TokenKind>,
 {
-    source: &'src str,
     tokens: T,
     events: Vec<Option<Event<C>>>,
     errors: Vec<ParseError<C, E>>,
@@ -28,9 +27,7 @@ where
     expected_state: Rc<Cell<ExpectedState>>,
 }
 
-pub type Grammar<C, T, E> = fn(&mut Parser<C, T, E>);
-
-impl<'src, C, T, E> Parser<'src, C, T, E>
+impl<C, T, E> Parser<C, T, E>
 where
     C: ParseConfig,
     C::TokenKind: Copy + PartialEq,
@@ -39,9 +36,11 @@ where
 {
     /// # Panics
     /// This is here to satisfy clippy until I get around to writing proper docs
-    pub fn parse(source: &'src str, tokens: T, grammar: Grammar<C, T, E>) -> ParseResult<C, E> {
+    pub fn parse<G>(source: &str, tokens: T, grammar: G) -> ParseResult<C, E>
+    where
+        G: FnOnce(&mut Self),
+    {
         let mut this = Self {
-            source,
             tokens,
             token_idx: 0,
             events: Vec::new(),
@@ -52,8 +51,8 @@ where
         grammar(&mut this);
 
         // Since `Parser` can only be mutably accessed by user code in `grammar`,
-        // failing to complete markers will result in runtime panics.
-        // Hence if we get this far, all events should be populated.
+        // failing to complete markers will result in runtime panics before here.
+        // Hence if we get this far, all events are populated.
         assert!(this.events.iter().all(Option::is_some));
 
         // See https://stackoverflow.com/a/55081958
@@ -65,7 +64,7 @@ where
                 copied.capacity(),
             )
         };
-        Sink::new(events, this.source, this.tokens).finish(this.errors)
+        Sink::new(events, source, this.tokens).finish(this.errors)
     }
 
     pub fn is_at(&mut self, kind: C::TokenKind) -> bool {
