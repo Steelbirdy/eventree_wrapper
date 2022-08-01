@@ -231,8 +231,17 @@ where
         self.peek_raw()
     }
 
+    pub fn peek_range(&mut self) -> Option<TextRange> {
+        self.skip_trivia();
+        self.peek_range_raw()
+    }
+
     fn peek_raw(&self) -> Option<C::TokenKind> {
         self.tokens.get_kind(self.token_idx)
+    }
+
+    fn peek_range_raw(&self) -> Option<TextRange> {
+        self.tokens.get_range(self.token_idx)
     }
 
     fn clear_expected(&mut self) -> Option<ExpectedKind<C>> {
