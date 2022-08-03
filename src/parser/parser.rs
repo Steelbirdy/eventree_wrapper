@@ -235,6 +235,17 @@ where
         self.peek_range_raw()
     }
 
+    pub fn previous_range(&self) -> TextRange {
+        if self.token_idx == 0 {
+            return TextRange::empty(0.into());
+        }
+        let mut prev_idx = self.token_idx - 1;
+        while C::is_trivia(&self.tokens.kind(prev_idx)) {
+            prev_idx -= 1;
+        }
+        self.tokens.range(prev_idx)
+    }
+
     fn skip_trivia(&mut self) {
         while self.peek_raw().filter(C::is_trivia).is_some() {
             self.token_idx += 1;
@@ -262,17 +273,6 @@ where
         self.expected_state.set(ExpectedState::Unnamed);
         ret
     }
-
-    fn previous_range(&self) -> TextRange {
-        if self.token_idx == 0 {
-            return TextRange::empty(0.into());
-        }
-        let mut prev_idx = self.token_idx - 1;
-        while C::is_trivia(&self.tokens.kind(prev_idx)) {
-            prev_idx -= 1;
-        }
-        self.tokens.range(prev_idx)
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -284,11 +284,12 @@ pub enum ExpectedKind<C: ParseConfig> {
 
 impl<C: ParseConfig> ExpectedKind<C>
 where
-    C::TokenKind: Copy,
+    C::TokenKind: Copy + PartialEq,
 {
     fn add(&mut self, kind: C::TokenKind) {
         match self {
             Self::Named(_) => panic!("cannot add a TokenKind to a named ExpectedKind"),
+            Self::Unnamed(prev) if *prev == kind => {},
             Self::Unnamed(prev) => {
                 let set = TokenSet::new([kind, *prev]);
                 *self = Self::AnyUnnamed(set);
