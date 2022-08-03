@@ -182,7 +182,9 @@ where
         });
 
         let marker = self.start();
-        self.bump();
+        while !self.is_at_end() && !self.is_at_any_raw(recovery_set) {
+            self.bump();
+        }
         Some(self.complete(marker, C::ERROR_NODE_KIND))
     }
 
