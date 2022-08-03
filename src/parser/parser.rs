@@ -181,11 +181,7 @@ where
             range: self.tokens.range(self.token_idx),
         });
 
-        let marker = self.start();
-        while !self.is_at_end() && !self.is_at_any_raw(recovery_set) {
-            self.bump();
-        }
-        Some(self.complete(marker, C::ERROR_NODE_KIND))
+        Some(self.recover_with_recovery_set(recovery_set))
     }
 
     #[must_use = "the drop guard must stay in scope to be useful. Try `let _guard = ...`"]
@@ -246,6 +242,22 @@ where
             prev_idx -= 1;
         }
         self.tokens.range(prev_idx)
+    }
+
+    pub fn recover(&mut self) -> CompletedMarker {
+        self.recover_with_recovery_set(TokenSet::EMPTY)
+    }
+
+    pub fn recover_with_recovery_set(&mut self, recovery_set: TokenSet<C::TokenKind>) -> CompletedMarker {
+        self.recover_with_only_recovery_set(C::default_recovery_set().union(recovery_set))
+    }
+
+    pub fn recover_with_only_recovery_set(&mut self, recovery_set: TokenSet<C::TokenKind>) -> CompletedMarker {
+        let marker = self.start();
+        while !self.is_at_end() && !self.is_at_any_raw(recovery_set) {
+            self.bump();
+        }
+        self.complete(marker, C::ERROR_NODE_KIND)
     }
 
     fn skip_trivia(&mut self) {
