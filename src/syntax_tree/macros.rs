@@ -1,6 +1,6 @@
 #[macro_export]
 macro_rules! ast_node {
-    (<$Config:ty> $vis:vis $kind:ident $(fn $field:ident = $func:ident($ty:ty) $(. $next:ident($($arg:expr)*))* $(-> { $actual:ty })?;)*) => {
+    (<$Config:ty> $vis:vis $kind:ident $(fn $field:ident = $func:ident($ty:ty) $(. $next:ident($($arg:expr)*))* $(-> $actual:ty)?;)*) => {
         #[derive(Copy, Clone, Eq, PartialEq, Hash)]
         $vis struct $kind($vis $crate::eventree::SyntaxNode<$Config>);
 

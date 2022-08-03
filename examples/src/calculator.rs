@@ -215,7 +215,7 @@ ast_node! { <Cfg> PrefixExpr
 ast_node! { <Cfg> InfixExpr
     fn op = token(InfixOp);
     fn lhs = node(Expr);
-    fn rhs = nodes(Expr).nth(1) -> { Option<Expr> };
+    fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
 }
 ast_node! { <Cfg> Int
     fn value = token(IntLiteral);

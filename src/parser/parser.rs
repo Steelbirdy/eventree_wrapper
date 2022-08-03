@@ -8,8 +8,8 @@ use std::fmt;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
 
-const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. Use `Parser::expected` to specify\
- what the parser expected before using `Parser::error`";
+const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. Use `Parser::expected` to specify \
+what the parser expected before using `Parser::error`";
 
 pub struct Parser<C, T>
 where
@@ -79,6 +79,15 @@ where
     }
 
     pub fn is_at_any(&mut self, set: TokenSet<C::TokenKind>) -> bool {
+        if let ExpectedState::Unnamed = self.expected_state.get() {
+            if !set.is_empty() {
+                self.expected
+                    .get_or_insert(ExpectedKind::AnyUnnamed(TokenSet::EMPTY))
+                    .add_all(set);
+            }
+        }
+
+        self.skip_trivia();
         self.peek().map_or(false, |kind| set.contains(kind))
     }
 
@@ -157,7 +166,7 @@ where
         recovery_set: TokenSet<C::TokenKind>,
     ) -> Option<CompletedMarker> {
         let expected = self.clear_expected().expect(NO_EXPECTED_MESSAGE);
-        if self.is_at_end() || self.is_at_any(recovery_set) {
+        if self.is_at_end() || self.is_at_any_raw(recovery_set) {
             let range = self.previous_range();
             self.errors.push(ParseError::Missing {
                 expected,
@@ -216,6 +225,16 @@ where
         Marker::new(marker.index)
     }
 
+    pub fn peek(&mut self) -> Option<C::TokenKind> {
+        self.skip_trivia();
+        self.peek_raw()
+    }
+
+    pub fn peek_range(&mut self) -> Option<TextRange> {
+        self.skip_trivia();
+        self.peek_range_raw()
+    }
+
     fn skip_trivia(&mut self) {
         while self.peek_raw().filter(C::is_trivia).is_some() {
             self.token_idx += 1;
@@ -226,14 +245,8 @@ where
         self.peek_raw() == Some(kind)
     }
 
-    pub fn peek(&mut self) -> Option<C::TokenKind> {
-        self.skip_trivia();
-        self.peek_raw()
-    }
-
-    pub fn peek_range(&mut self) -> Option<TextRange> {
-        self.skip_trivia();
-        self.peek_range_raw()
+    fn is_at_any_raw(&self, set: TokenSet<C::TokenKind>) -> bool {
+        self.peek_raw().map_or(false, |tok| set.contains(tok))
     }
 
     fn peek_raw(&self) -> Option<C::TokenKind> {
@@ -281,6 +294,18 @@ where
                 *self = Self::AnyUnnamed(set);
             }
             Self::AnyUnnamed(set) => set.insert(kind),
+        }
+    }
+
+    fn add_all(&mut self, set: TokenSet<C::TokenKind>) {
+        match self {
+            Self::Named(_) => panic!("cannot add TokenKinds to a named ExpectedKind"),
+            Self::Unnamed(prev) => {
+                *self = Self::AnyUnnamed(set.with(*prev));
+            }
+            Self::AnyUnnamed(prev) => {
+                *prev = prev.union(set);
+            }
         }
     }
 }

@@ -158,7 +158,7 @@ ast_node! { <Cfg> Expr => [Cons(Cons), Int(Int)] }
 ast_node! { <Cfg> Cons
     fn op = token(Operator);
     fn lhs = node(Expr);
-    fn rhs = nodes(Expr).nth(1) -> { Option<Expr> };
+    fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
 }
 ast_node! { <Cfg> Int
     fn value = token(IntLiteral);
