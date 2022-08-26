@@ -5,7 +5,7 @@ use crate::parser::{
 use eventree::TextRange;
 use std::cell::Cell;
 use std::fmt;
-use std::mem::ManuallyDrop;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. Use `Parser::expected` to specify \
@@ -51,11 +51,12 @@ where
         // Since `Parser` can only be mutably accessed by user code in `grammar`,
         // failing to complete markers will result in runtime panics before here.
         // Hence if we get this far, all events are populated.
+        // TODO: Is it possible for a Parser to create another Parser and mess with its events?
         assert!(this.events.iter().all(Option::is_some));
 
         // See https://stackoverflow.com/a/55081958
         let events = unsafe {
-            let mut copied = ManuallyDrop::new(this.events);
+            let mut copied = std::mem::ManuallyDrop::new(this.events);
             Vec::from_raw_parts(
                 copied.as_mut_ptr().cast::<Event<C>>(),
                 copied.len(),
@@ -248,11 +249,17 @@ where
         self.recover_with_recovery_set(TokenSet::EMPTY)
     }
 
-    pub fn recover_with_recovery_set(&mut self, recovery_set: TokenSet<C::TokenKind>) -> CompletedMarker {
+    pub fn recover_with_recovery_set(
+        &mut self,
+        recovery_set: TokenSet<C::TokenKind>,
+    ) -> CompletedMarker {
         self.recover_with_only_recovery_set(C::default_recovery_set().union(recovery_set))
     }
 
-    pub fn recover_with_only_recovery_set(&mut self, recovery_set: TokenSet<C::TokenKind>) -> CompletedMarker {
+    pub fn recover_with_only_recovery_set(
+        &mut self,
+        recovery_set: TokenSet<C::TokenKind>,
+    ) -> CompletedMarker {
         let marker = self.start();
         while !self.is_at_end() && !self.is_at_any_raw(recovery_set) {
             self.bump();
@@ -289,7 +296,6 @@ where
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ExpectedKind<C: ParseConfig> {
     Named(&'static str),
     Unnamed(C::TokenKind),
@@ -303,7 +309,7 @@ where
     fn add(&mut self, kind: C::TokenKind) {
         match self {
             Self::Named(_) => panic!("cannot add a TokenKind to a named ExpectedKind"),
-            Self::Unnamed(prev) if *prev == kind => {},
+            Self::Unnamed(prev) if *prev == kind => {}
             Self::Unnamed(prev) => {
                 let set = TokenSet::new([kind, *prev]);
                 *self = Self::AnyUnnamed(set);
@@ -321,6 +327,54 @@ where
             Self::AnyUnnamed(prev) => {
                 *prev = prev.union(set);
             }
+        }
+    }
+}
+
+impl<C: ParseConfig> Copy for ExpectedKind<C> where C::TokenKind: Copy {}
+
+impl<C: ParseConfig> Clone for ExpectedKind<C>
+where
+    C::TokenKind: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::Named(name) => Self::Named(name),
+            Self::Unnamed(kind) => Self::Unnamed(kind.clone()),
+            Self::AnyUnnamed(set) => Self::AnyUnnamed(*set),
+        }
+    }
+}
+
+impl<C: ParseConfig> Eq for ExpectedKind<C> where C::TokenKind: Eq {}
+
+// TODO: Should the case (AnyUnnamed([kind]), Unnamed(kind)) be considered equal?
+impl<C: ParseConfig> PartialEq for ExpectedKind<C>
+where
+    C::TokenKind: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Named(a), Self::Named(b)) => a == b,
+            (Self::Unnamed(a), Self::Unnamed(b)) => a == b,
+            (Self::AnyUnnamed(a), Self::AnyUnnamed(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl<C: ParseConfig> Hash for ExpectedKind<C>
+where
+    C::TokenKind: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let discrim = std::mem::discriminant(self);
+        discrim.hash(state);
+
+        match self {
+            Self::Named(name) => name.hash(state),
+            Self::Unnamed(kind) => kind.hash(state),
+            Self::AnyUnnamed(set) => set.hash(state),
         }
     }
 }

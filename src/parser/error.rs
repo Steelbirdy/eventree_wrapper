@@ -2,6 +2,7 @@ use crate::parser::{ExpectedKind, ParseConfig, TokenSet};
 use eventree::{TextRange, TextSize};
 use std::fmt;
 
+#[non_exhaustive]
 pub enum ParseError<C: ParseConfig> {
     Missing {
         expected: ExpectedKind<C>,
