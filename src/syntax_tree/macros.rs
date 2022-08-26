@@ -27,48 +27,48 @@ macro_rules! ast_node {
         }
     };
     // TODO: Allow nested enum AstNode types to be defined via macro
-    (<$Config:ty> $vis:vis $kind:ident => [$($variant:ident($inner:ident)),+ $(,)?] $(fn $field:ident = $func:ident($ty:ty);)*) => {
+    (<$Config:ty> $vis:vis $kind:ident => [$($($variant:ident($inner:ident)),+ $(,)?)?] $(fn $field:ident = $func:ident($ty:ty);)*) => {
         #[derive(Copy, Clone, Eq, PartialEq, Hash)]
         $vis enum $kind {
-            $(
+            $($(
             $variant($inner),
-            )+
+            )+)?
         }
 
         impl $crate::syntax_tree::AstNode<$Config> for $kind {
             #[allow(unreachable_patterns)]
             fn cast(node: $crate::eventree::SyntaxNode<$Config>, tree: &$crate::eventree::SyntaxTree<$Config>) -> Option<Self> {
-                $(
+                $($(
                 if let Some(casted) = $inner::cast(node, tree) {
                     return Some(Self::$variant(casted));
                 }
-                )+
+                )+)?
                 None
             }
 
             fn syntax(self) -> $crate::eventree::SyntaxNode<$Config> {
                 match self {
-                    $(
+                    $($(
                     Self::$variant(inner) => inner.syntax(),
-                    )+
+                    )+)?
                 }
             }
         }
 
         impl $kind {
-            $crate::ast_node!(@funcs <$Config> self, Self [$($variant),+] [$($field = $func($ty)),*]);
+            $crate::ast_node!(@funcs <$Config> self, Self [$($($variant),+)?] [$($field = $func($ty)),*]);
         }
     };
-    (@funcs <$Config:ty> $this:ident, $This:ident [$($variant:ident),+] [$f_field:ident = $f_func:ident($f_ty:ty) $(, $($rest:tt)*)?]) => {
+    (@funcs <$Config:ty> $this:ident, $This:ident [$($variant:ident),*] [$f_field:ident = $f_func:ident($f_ty:ty) $(, $($rest:tt)*)?]) => {
         fn $f_field($this, tree: &$crate::eventree::SyntaxTree<$Config>) -> $crate::ast_node!(@ret $f_func $f_ty) {
             match $this {
                 $(
                 $This::$variant(inner) => $crate::syntax_tree::$f_func(inner, tree),
-                )+
+                )*
             }
         }
 
-        $crate::ast_node!(@funcs <$Config> $this, $This [$($variant),+] [$($($rest)*)?]);
+        $crate::ast_node!(@funcs <$Config> $this, $This [$($variant),*] [$($($rest)*)?]);
     };
     (@funcs <$Config:ty> $this:ident, $This:ident [$($variant:ident),*] []) => {};
     (@ret $func:ident $ty:ty => $actual:ty) => {
@@ -108,29 +108,29 @@ macro_rules! ast_token {
             }
         }
     };
-    (<$Config:ty> $vis:vis $kind:ident => [$($variant:ident($inner:ident)),+ $(,)?]) => {
+    (<$Config:ty> $vis:vis $kind:ident => [$($($variant:ident($inner:ident)),+ $(,)?)?]) => {
         #[derive(Copy, Clone, Eq, PartialEq, Hash)]
         $vis enum $kind {
-            $(
+            $($(
             $variant($inner),
-            )+
+            )+)?
         }
 
         impl $crate::syntax_tree::AstToken<$Config> for $kind {
             fn cast(token: $crate::eventree::SyntaxToken<$Config>, tree: &$crate::eventree::SyntaxTree<$Config>) -> Option<Self> {
-                $(
+                $($(
                 if let Some(casted) = $inner::cast(token, tree) {
                     return Some(Self::$variant(casted));
                 }
-                )+
+                )+)?
                 None
             }
 
             fn syntax(self) -> $crate::eventree::SyntaxToken<$Config> {
                 match self {
-                    $(
+                    $($(
                     Self::$variant(inner) => inner.syntax(),
-                    )+
+                    )+)?
                 }
             }
         }
