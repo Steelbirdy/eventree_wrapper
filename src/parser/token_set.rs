@@ -9,7 +9,6 @@ pub struct TokenSet<T> {
 
 impl<T> TokenSet<T> {
     pub const EMPTY: Self = Self::_new(0);
-    pub const ALL: Self = Self::_new(u64::MAX);
 
     #[must_use]
     const fn _new(flags: u64) -> Self {
@@ -292,7 +291,7 @@ mod tests {
 
     #[test]
     fn kinds_with_all() {
-        let set = TokenSet::<Kind>::ALL;
+        let set = TokenSet::<Kind>::_new(u64::MAX);
         let mut kinds = set.kinds();
         for i in 0..64 {
             assert_eq!(format!("{:?}", kinds.next()), format!("Some(V{i})"));
@@ -317,7 +316,7 @@ mod tests {
     #[test]
     fn kinds_len() {
         assert_eq!(TokenSet::<Kind>::EMPTY.kinds().len(), 0);
-        assert_eq!(TokenSet::<Kind>::ALL.kinds().len(), 64);
+        assert_eq!(TokenSet::<Kind>::_new(u64::MAX).kinds().len(), 64);
         let set = TokenSet::new([Kind::V7, Kind::V61, Kind::V22]);
         assert_eq!(set.kinds().len(), 3);
     }
