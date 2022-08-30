@@ -77,24 +77,28 @@ where
         self.is_at(C::default_recovery_set())
     }
 
-    pub fn check<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
-        self.check_with_recovery_set(pat, TokenSet::EMPTY);
+    pub fn check<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) -> bool {
+        self.check_with_recovery_set(pat, TokenSet::EMPTY)
     }
 
     pub fn check_with_recovery_set<P: ParsePattern<C::TokenKind>>(
         &mut self,
         pat: P,
         recovery_set: TokenSet<C::TokenKind>,
-    ) {
-        if !self.is_at(pat) {
+    ) -> bool {
+        let at_expected = self.is_at(pat);
+        if !at_expected {
             self.error_with_recovery_set(recovery_set);
         }
+        at_expected
     }
 
-    pub fn check_without_skipping<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
-        if !self.is_at(pat) {
+    pub fn check_without_skipping<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) -> bool {
+        let at_expected = self.is_at(pat);
+        if !at_expected {
             self.error_without_skipping();
         }
+        at_expected
     }
 
     pub fn expect<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
@@ -106,18 +110,14 @@ where
         pat: P,
         recovery_set: TokenSet<C::TokenKind>,
     ) {
-        if self.is_at(pat) {
+        if self.check_with_recovery_set(pat, recovery_set) {
             self.bump();
-        } else {
-            self.error_with_recovery_set(recovery_set);
         }
     }
 
     pub fn expect_without_skipping(&mut self, kind: C::TokenKind) {
-        if self.is_at(kind) {
+        if self.check_without_skipping(kind) {
             self.bump();
-        } else {
-            self.error_without_skipping();
         }
     }
 
