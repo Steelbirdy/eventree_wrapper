@@ -59,3 +59,37 @@ impl<T: Tokens> Tokens for &T {
         T::range(self, index)
     }
 }
+
+mod __private {
+    pub trait Sealed {}
+
+    impl<T: eventree::SyntaxKind> Sealed for T {}
+
+    impl<T: eventree::SyntaxKind> Sealed for crate::parser::TokenSet<T> {}
+}
+
+pub trait ParsePattern<T>: Sized + __private::Sealed {
+    fn matches(&self, kind: T) -> bool;
+
+    fn expected<C: ParseConfig<TokenKind = T>>(self) -> crate::parser::ExpectedKind<C>;
+}
+
+impl<T: eventree::SyntaxKind + PartialEq> ParsePattern<T> for T {
+    fn matches(&self, kind: T) -> bool {
+        *self == kind
+    }
+
+    fn expected<C: ParseConfig<TokenKind = T>>(self) -> crate::parser::ExpectedKind<C> {
+        crate::parser::ExpectedKind::Unnamed(self)
+    }
+}
+
+impl<T: eventree::SyntaxKind> ParsePattern<T> for TokenSet<T> {
+    fn matches(&self, kind: T) -> bool {
+        self.contains(kind)
+    }
+
+    fn expected<C: ParseConfig<TokenKind = T>>(self) -> crate::parser::ExpectedKind<C> {
+        crate::parser::ExpectedKind::AnyUnnamed(self)
+    }
+}

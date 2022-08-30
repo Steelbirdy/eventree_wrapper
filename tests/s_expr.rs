@@ -30,7 +30,7 @@ fn parse_cons(p: &mut Parser) {
     assert!(p.is_at(LParen));
     let marker = p.start();
     p.bump();
-    p.expect_any(*OPERATORS);
+    p.expect(*OPERATORS);
     s_expr(p);
     s_expr(p);
     p.expect(RParen);

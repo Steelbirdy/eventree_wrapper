@@ -3,11 +3,7 @@ use crate::parser::{
     ParseError, ParseResult, {ParseConfig, Tokens},
 };
 
-pub(crate) struct Sink<C, T>
-where
-    C: ParseConfig,
-    T: Tokens<TokenKind = C::TokenKind>,
-{
+pub(crate) struct Sink<C: ParseConfig, T> {
     events: Vec<Event<C>>,
     tokens: T,
     token_idx: usize,

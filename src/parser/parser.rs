@@ -1,6 +1,6 @@
 use crate::parser::{
-    event::Event, sink::Sink, CompletedMarker, Marker, ParseConfig, ParseError, ParseResult,
-    TokenSet, Tokens,
+    event::Event, sink::Sink, traits::ParsePattern, CompletedMarker, Marker, ParseConfig,
+    ParseError, ParseResult, TokenSet, Tokens,
 };
 use eventree::TextRange;
 use std::cell::Cell;
@@ -11,12 +11,7 @@ use std::rc::Rc;
 const NO_EXPECTED_MESSAGE: &str = "no expected syntax was set. Use `Parser::expected` to specify \
 what the parser expected before using `Parser::error`";
 
-pub struct Parser<C, T>
-where
-    C: ParseConfig,
-    C::TokenKind: Copy + PartialEq,
-    T: Tokens<TokenKind = C::TokenKind>,
-{
+pub struct Parser<C: ParseConfig, T> {
     tokens: T,
     events: Vec<Option<Event<C>>>,
     errors: Vec<ParseError<C>>,
@@ -66,30 +61,11 @@ where
         Sink::new(events, source, this.tokens).finish(this.errors)
     }
 
-    pub fn is_at(&mut self, kind: C::TokenKind) -> bool {
-        if let ExpectedState::Unnamed = self.expected_state.get() {
-            match &mut self.expected {
-                Some(expected) => expected.add(kind),
-                x @ None => {
-                    *x = Some(ExpectedKind::Unnamed(kind));
-                }
-            }
-        }
+    pub fn is_at<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) -> bool {
         self.skip_trivia();
-        self.is_at_raw(kind)
-    }
-
-    pub fn is_at_any(&mut self, set: TokenSet<C::TokenKind>) -> bool {
-        if let ExpectedState::Unnamed = self.expected_state.get() {
-            if !set.is_empty() {
-                self.expected
-                    .get_or_insert(ExpectedKind::AnyUnnamed(TokenSet::EMPTY))
-                    .add_all(set);
-            }
-        }
-
-        self.skip_trivia();
-        self.peek().map_or(false, |kind| set.contains(kind))
+        let ret = self.is_at_raw(&pat);
+        self.update_expected(pat);
+        ret
     }
 
     pub fn is_at_end(&mut self) -> bool {
@@ -97,32 +73,20 @@ where
         self.tokens.is_at_end(self.token_idx)
     }
 
-    pub fn expect(&mut self, kind: C::TokenKind) {
-        self.expect_with_recovery_set(kind, TokenSet::EMPTY);
+    pub fn is_at_default_recovery_set(&mut self) -> bool {
+        self.is_at(C::default_recovery_set())
     }
 
-    pub fn expect_any(&mut self, set: TokenSet<C::TokenKind>) {
-        self.expect_any_with_recovery_set(set, TokenSet::EMPTY);
+    pub fn expect<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
+        self.expect_with_recovery_set(pat, TokenSet::EMPTY);
     }
 
-    pub fn expect_with_recovery_set(
+    pub fn expect_with_recovery_set<P: ParsePattern<C::TokenKind>>(
         &mut self,
-        kind: C::TokenKind,
+        pat: P,
         recovery_set: TokenSet<C::TokenKind>,
     ) {
-        if self.is_at(kind) {
-            self.bump();
-        } else {
-            self.error_with_recovery_set(recovery_set);
-        }
-    }
-
-    pub fn expect_any_with_recovery_set(
-        &mut self,
-        set: TokenSet<C::TokenKind>,
-        recovery_set: TokenSet<C::TokenKind>,
-    ) {
-        if self.is_at_any(set) {
+        if self.is_at(pat) {
             self.bump();
         } else {
             self.error_with_recovery_set(recovery_set);
@@ -167,7 +131,7 @@ where
         recovery_set: TokenSet<C::TokenKind>,
     ) -> Option<CompletedMarker> {
         let expected = self.clear_expected().expect(NO_EXPECTED_MESSAGE);
-        if self.is_at_end() || self.is_at_any_raw(recovery_set) {
+        if self.is_at_end() || self.is_at_raw(&recovery_set) {
             let range = self.previous_range();
             self.errors.push(ParseError::Missing {
                 expected,
@@ -253,12 +217,24 @@ where
         }
     }
 
-    fn is_at_raw(&self, kind: C::TokenKind) -> bool {
-        self.peek_raw() == Some(kind)
+    fn update_expected<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
+        let pat = pat.expected::<C>();
+        if let Some(expected) = &mut self.expected {
+            if matches!(expected, ExpectedKind::Named(_)) {
+                return;
+            }
+            match pat {
+                ExpectedKind::Named(_) => unreachable!(),
+                ExpectedKind::Unnamed(kind) => expected.add(kind),
+                ExpectedKind::AnyUnnamed(set) => expected.add_all(set),
+            }
+        } else {
+            self.expected = Some(pat);
+        }
     }
 
-    fn is_at_any_raw(&self, set: TokenSet<C::TokenKind>) -> bool {
-        self.peek_raw().map_or(false, |tok| set.contains(tok))
+    fn is_at_raw<P: ParsePattern<C::TokenKind>>(&self, pat: &P) -> bool {
+        self.peek_raw().map_or(false, |kind| pat.matches(kind))
     }
 
     fn peek_raw(&self) -> Option<C::TokenKind> {
