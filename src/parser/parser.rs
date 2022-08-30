@@ -77,6 +77,26 @@ where
         self.is_at(C::default_recovery_set())
     }
 
+    pub fn check<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
+        self.check_with_recovery_set(pat, TokenSet::EMPTY);
+    }
+
+    pub fn check_with_recovery_set<P: ParsePattern<C::TokenKind>>(
+        &mut self,
+        pat: P,
+        recovery_set: TokenSet<C::TokenKind>,
+    ) {
+        if !self.is_at(pat) {
+            self.error_with_recovery_set(recovery_set);
+        }
+    }
+
+    pub fn check_without_skipping<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
+        if !self.is_at(pat) {
+            self.error_without_skipping();
+        }
+    }
+
     pub fn expect<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
         self.expect_with_recovery_set(pat, TokenSet::EMPTY);
     }
