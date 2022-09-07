@@ -32,7 +32,8 @@ configure! {
     };
 }
 
-ast_node!(Root);
+#[ast_node]
+struct Root;
 
 impl ParseConfig for TreeConfig {
     type Error = std::convert::Infallible;

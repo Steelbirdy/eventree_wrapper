@@ -153,25 +153,59 @@ fn int(p: &mut Parser) {
     p.complete(marker, NodeKind::Int);
 }
 
-ast_node! { Root
-    fn expr = node(Expr);
-}
-ast_node! { Expr => [Cons(Cons), Int(Int)] }
-ast_node! { Cons
-    fn op = token(Operator);
-    fn lhs = node(Expr);
-    fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
-}
-ast_node! { Int
-    fn value = token(IntLiteral);
+#[ast_node]
+struct Root;
+
+#[ast_node]
+enum Expr {
+    Cons(Cons),
+    Int(Int),
 }
 
-ast_token! { Operator => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
-ast_token! { Plus }
-ast_token! { Minus }
-ast_token! { Star }
-ast_token! { Slash }
-ast_token! { IntLiteral }
+#[ast_node]
+struct Cons;
+
+#[ast_node]
+struct Int;
+
+eventree_wrapper::node_funcs! {
+    impl Root {
+        fn expr = node(Expr);
+    }
+
+    impl Cons {
+        fn op = token(Operator);
+        fn lhs = node(Expr);
+        fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
+    }
+
+    impl Int {
+        fn value = token(IntLiteral);
+    }
+}
+
+#[ast_token]
+enum Operator {
+    Add(Plus),
+    Sub(Minus),
+    Mul(Star),
+    Div(Slash),
+}
+
+#[ast_token]
+struct Plus;
+
+#[ast_token]
+struct Minus;
+
+#[ast_token]
+struct Star;
+
+#[ast_token]
+struct Slash;
+
+#[ast_token]
+struct IntLiteral;
 
 #[cfg(test)]
 mod tests {
@@ -299,7 +333,8 @@ Root@0..19
     fn missing_operator() {
         check(
             "(1 2)",
-            expect![r#"
+            expect![
+                r#"
 Root@0..5
   Cons@0..5
     LParen@0..1 "("
@@ -310,7 +345,8 @@ Root@0..5
       IntLiteral@3..4 "2"
     RParen@4..5 ")"
 error at 1: missing operator
-"#]
+"#
+            ],
         );
     }
 
@@ -318,7 +354,8 @@ error at 1: missing operator
     fn operator_in_middle() {
         check(
             "(1 + 2)",
-            expect![r#"
+            expect![
+                r#"
 Root@0..7
   Cons@0..6
     LParen@0..1 "("
@@ -336,7 +373,8 @@ error at 1: missing operator
 error at 3..4: expected expression but found Plus
 error at 5..6: expected RParen but found IntLiteral
 error at 6..7: expected end but found RParen
-"#]
+"#
+            ],
         );
     }
 
@@ -344,7 +382,8 @@ error at 6..7: expected end but found RParen
     fn missing_lhs_and_rhs() {
         check(
             "(+ )",
-            expect![r#"
+            expect![
+                r#"
 Root@0..4
   Cons@0..4
     LParen@0..1 "("
@@ -353,7 +392,8 @@ Root@0..4
     RParen@3..4 ")"
 error at 2: missing expression
 error at 2: missing expression
-"#]
+"#
+            ],
         );
     }
 
@@ -361,7 +401,8 @@ error at 2: missing expression
     fn missing_rhs() {
         check(
             "(+ 1 )",
-            expect![r#"
+            expect![
+                r#"
 Root@0..6
   Cons@0..6
     LParen@0..1 "("
@@ -372,7 +413,8 @@ Root@0..6
     Whitespace@4..5 " "
     RParen@5..6 ")"
 error at 4: missing expression
-"#]
+"#
+            ],
         );
     }
 
@@ -380,7 +422,8 @@ error at 4: missing expression
     fn extra_tokens() {
         check(
             "(+ 1 1) 1",
-            expect![r#"
+            expect![
+                r#"
 Root@0..9
   Cons@0..7
     LParen@0..1 "("
@@ -396,7 +439,8 @@ Root@0..9
   Error@8..9
     IntLiteral@8..9 "1"
 error at 8..9: expected end but found IntLiteral
-"#]
+"#
+            ],
         );
     }
 }

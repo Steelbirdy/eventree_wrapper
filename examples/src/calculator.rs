@@ -1,6 +1,7 @@
 use eventree_wrapper::{
     ast_node, ast_token,
     eventree::{SyntaxKind, TreeConfig},
+    node_funcs,
     parser::{self, CompletedMarker, ParseResult, SimpleTokens},
 };
 use logos::Logos;
@@ -202,33 +203,101 @@ type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>>;
 
 type Cfg = ParseConfig;
 
-ast_node! { Root
-    fn expr = node(Expr);
-}
-ast_node! { Expr => [Grouping(Grouping), Prefix(PrefixExpr), Infix(InfixExpr), Int(Int)] }
-ast_node! { Grouping
-    fn expr = node(Expr);
-}
-ast_node! { PrefixExpr
-    fn op = token(PrefixOp);
-    fn rhs = node(Expr);
-}
-ast_node! { InfixExpr
-    fn op = token(InfixOp);
-    fn lhs = node(Expr);
-    fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
-}
-ast_node! { Int
-    fn value = token(IntLiteral);
+// ast_node! { Root
+//     fn expr = node(Expr);
+// }
+// ast_node! { Expr => [Grouping(Grouping), Prefix(PrefixExpr), Infix(InfixExpr), Int(Int)] }
+// ast_node! { Grouping
+//     fn expr = node(Expr);
+// }
+// ast_node! { PrefixExpr
+//     fn op = token(PrefixOp);
+//     fn rhs = node(Expr);
+// }
+// ast_node! { InfixExpr
+//     fn op = token(InfixOp);
+//     fn lhs = node(Expr);
+//     fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
+// }
+// ast_node! { Int
+//     fn value = token(IntLiteral);
+// }
+
+#[ast_node]
+struct Root;
+
+#[ast_node]
+enum Expr {
+    Grouping(Grouping),
+    Prefix(PrefixExpr),
+    Infix(InfixExpr),
+    Int(Int),
 }
 
-ast_token! { PrefixOp => [Neg(Minus)] }
-ast_token! { InfixOp => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
-ast_token! { Plus }
-ast_token! { Minus }
-ast_token! { Star }
-ast_token! { Slash }
-ast_token! { IntLiteral }
+#[ast_node]
+struct Grouping;
+
+#[ast_node]
+struct PrefixExpr;
+
+#[ast_node]
+struct InfixExpr;
+
+#[ast_node]
+struct Int;
+
+node_funcs! {
+    impl Root {
+        fn expr = node(Expr);
+    }
+
+    impl Grouping {
+        fn expr = node(Expr);
+    }
+
+    impl PrefixExpr {
+        fn op = token(PrefixOp);
+        fn rhs = node(Expr);
+    }
+
+    impl InfixExpr {
+        fn op = token(InfixOp);
+        fn lhs = node(Expr);
+        fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
+    }
+
+    impl Int {
+        fn value = token(IntLiteral);
+    }
+}
+
+#[ast_token]
+enum PrefixOp {
+    Neg(Minus),
+}
+
+#[ast_token]
+enum InfixOp {
+    Add(Plus),
+    Sub(Minus),
+    Mul(Star),
+    Div(Slash),
+}
+
+#[ast_token]
+struct Plus;
+
+#[ast_token]
+struct Minus;
+
+#[ast_token]
+struct Star;
+
+#[ast_token]
+struct Slash;
+
+#[ast_token]
+struct IntLiteral;
 
 #[cfg(test)]
 mod tests {
@@ -368,7 +437,8 @@ Root@0..9
     fn double_infix_operator() {
         check(
             "2 ++ 1",
-            expect![r#"
+            expect![
+                r#"
 Root@0..6
   InfixExpr@0..4
     Int@0..1
@@ -382,7 +452,8 @@ Root@0..6
     IntLiteral@5..6 "1"
 error at 3..4: expected operand but found Plus
 error at 5..6: expected end but found IntLiteral
-"#]
+"#
+            ],
         );
     }
 }
