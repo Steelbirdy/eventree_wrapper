@@ -1,6 +1,7 @@
 macro_rules! configure {
     ($Config:ident; $(#[$t_outer_meta:meta])* $TokenKind:ident { $($(#[$t_inner_meta:meta])* $t_kind:ident),* $(,)? }; $NodeKind:ident { $($n_kind:ident),* $(,)? };) => {
         #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+        #[::eventree_wrapper::parse_config]
         pub enum $Config {}
 
         impl ::eventree_wrapper::eventree::TreeConfig for $Config {

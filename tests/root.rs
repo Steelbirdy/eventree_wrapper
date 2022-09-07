@@ -32,9 +32,7 @@ configure! {
     };
 }
 
-type Cfg = TreeConfig;
-
-ast_node!(<Cfg> Root);
+ast_node!(Root);
 
 impl ParseConfig for TreeConfig {
     type Error = std::convert::Infallible;

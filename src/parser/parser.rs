@@ -115,8 +115,8 @@ where
         }
     }
 
-    pub fn expect_without_skipping(&mut self, kind: C::TokenKind) {
-        if self.check_without_skipping(kind) {
+    pub fn expect_without_skipping<P: ParsePattern<C::TokenKind>>(&mut self, pat: P) {
+        if self.check_without_skipping(pat) {
             self.bump();
         }
     }

@@ -147,7 +147,7 @@ fn check(source: &str, expect: Expect) {
 
     let tokens = SimpleTokens::new(kinds.into_boxed_slice(), starts.into_boxed_slice());
     let result = Parser::parse(source, &tokens, root);
-    expect.assert_eq(&format!("{}", result));
+    expect.assert_debug_eq(&result);
 }
 
 #[test]

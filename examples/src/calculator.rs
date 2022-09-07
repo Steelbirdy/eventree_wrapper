@@ -47,7 +47,7 @@ fn expr(p: &mut Parser, min_bp: BindPower, recovery_set: TokenSet) -> Option<Com
 }
 
 fn expr_lhs(p: &mut Parser) -> Option<CompletedMarker> {
-    if p.is_at_any(*PREFIX_OP) {
+    if p.is_at(*PREFIX_OP) {
         prefix(p)
     } else if p.is_at(TokenKind::LParen) {
         grouping(p)
@@ -59,7 +59,7 @@ fn expr_lhs(p: &mut Parser) -> Option<CompletedMarker> {
 }
 
 fn prefix(p: &mut Parser) -> Option<CompletedMarker> {
-    assert!(p.is_at_any(*PREFIX_OP));
+    assert!(p.is_at(*PREFIX_OP));
     let marker = p.start();
     p.bump();
     let (_, rbp) = TokenKind::PREFIX_BP;
@@ -175,6 +175,7 @@ unsafe impl SyntaxKind for NodeKind {
     }
 }
 
+#[eventree_wrapper::parse_config]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum ParseConfig {}
 
@@ -201,33 +202,33 @@ type Parser<'t> = parser::Parser<ParseConfig, &'t SimpleTokens<TokenKind>>;
 
 type Cfg = ParseConfig;
 
-ast_node! { <Cfg> Root
+ast_node! { Root
     fn expr = node(Expr);
 }
-ast_node! { <Cfg> Expr => [Grouping(Grouping), Prefix(PrefixExpr), Infix(InfixExpr), Int(Int)] }
-ast_node! { <Cfg> Grouping
+ast_node! { Expr => [Grouping(Grouping), Prefix(PrefixExpr), Infix(InfixExpr), Int(Int)] }
+ast_node! { Grouping
     fn expr = node(Expr);
 }
-ast_node! { <Cfg> PrefixExpr
+ast_node! { PrefixExpr
     fn op = token(PrefixOp);
     fn rhs = node(Expr);
 }
-ast_node! { <Cfg> InfixExpr
+ast_node! { InfixExpr
     fn op = token(InfixOp);
     fn lhs = node(Expr);
     fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
 }
-ast_node! { <Cfg> Int
+ast_node! { Int
     fn value = token(IntLiteral);
 }
 
-ast_token! { <Cfg> PrefixOp => [Neg(Minus)] }
-ast_token! { <Cfg> InfixOp => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
-ast_token! { <Cfg> Plus }
-ast_token! { <Cfg> Minus }
-ast_token! { <Cfg> Star }
-ast_token! { <Cfg> Slash }
-ast_token! { <Cfg> IntLiteral }
+ast_token! { PrefixOp => [Neg(Minus)] }
+ast_token! { InfixOp => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
+ast_token! { Plus }
+ast_token! { Minus }
+ast_token! { Star }
+ast_token! { Slash }
+ast_token! { IntLiteral }
 
 #[cfg(test)]
 mod tests {

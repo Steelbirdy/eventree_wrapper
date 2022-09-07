@@ -16,8 +16,8 @@ configure! {
     };
 }
 
-eventree_wrapper::ast_node! { <ParseConfig> EmptyNode => [] }
-eventree_wrapper::ast_token! { <ParseConfig> EmptyToken => [] }
+eventree_wrapper::ast_node! { EmptyNode => [] }
+eventree_wrapper::ast_token! { EmptyToken => [] }
 
 impl eventree_wrapper::parser::ParseConfig for ParseConfig {
     type Error = std::convert::Infallible;

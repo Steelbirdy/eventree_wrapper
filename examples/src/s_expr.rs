@@ -62,8 +62,12 @@ unsafe impl SyntaxKind for NodeKind {
     }
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum ParseConfig {}
+mod config {
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+    pub enum ParseConfig {}
+}
+#[eventree_wrapper::parse_config]
+use self::config::ParseConfig;
 
 impl TreeConfig for ParseConfig {
     type NodeKind = NodeKind;
@@ -134,7 +138,7 @@ fn cons(p: &mut Parser) {
     p.bump();
     {
         let _guard = p.expected("operator");
-        p.expect_any_with_recovery_set(*OPERATORS, TokenSet::ALL);
+        p.expect_without_skipping(*OPERATORS);
     }
     expr(p);
     expr(p);
@@ -149,27 +153,25 @@ fn int(p: &mut Parser) {
     p.complete(marker, NodeKind::Int);
 }
 
-type Cfg = ParseConfig;
-
-ast_node! { <Cfg> Root
+ast_node! { Root
     fn expr = node(Expr);
 }
-ast_node! { <Cfg> Expr => [Cons(Cons), Int(Int)] }
-ast_node! { <Cfg> Cons
+ast_node! { Expr => [Cons(Cons), Int(Int)] }
+ast_node! { Cons
     fn op = token(Operator);
     fn lhs = node(Expr);
     fn rhs = nodes(Expr).nth(1) -> Option<Expr>;
 }
-ast_node! { <Cfg> Int
+ast_node! { Int
     fn value = token(IntLiteral);
 }
 
-ast_token! { <Cfg> Operator => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
-ast_token! { <Cfg> Plus }
-ast_token! { <Cfg> Minus }
-ast_token! { <Cfg> Star }
-ast_token! { <Cfg> Slash }
-ast_token! { <Cfg> IntLiteral }
+ast_token! { Operator => [Add(Plus), Sub(Minus), Mul(Star), Div(Slash)] }
+ast_token! { Plus }
+ast_token! { Minus }
+ast_token! { Star }
+ast_token! { Slash }
+ast_token! { IntLiteral }
 
 #[cfg(test)]
 mod tests {
