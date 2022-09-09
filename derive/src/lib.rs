@@ -3,7 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, punctuated::Punctuated, Result};
+use syn::{parse_macro_input, Result};
 
 const PARSE_CONFIG_TYPE_ALIAS: &str = "__EventreeWrapperParseConfig__";
 
@@ -358,8 +358,8 @@ pub fn parse_config(args: TokenStream, input: TokenStream) -> TokenStream {
         )),
     };
 
-    let path = match result {
-        Ok(path) => path,
+    let ident = match result {
+        Ok(ident) => ident,
         Err(err) => {
             let err = err.into_compile_error();
             return quote!(
@@ -372,52 +372,38 @@ pub fn parse_config(args: TokenStream, input: TokenStream) -> TokenStream {
 
     quote!(
         #input
-        type #config = #path;
+        type #config = #ident;
     )
     .into()
 }
 
-fn parse_config_use(item: &syn::ItemUse) -> Result<syn::Path> {
-    fn validate_path(tree: &syn::UseTree) -> Result<Punctuated<syn::PathSegment, syn::Token![::]>> {
-        let (ident, mut segments) = match tree {
+fn parse_config_use(item: &syn::ItemUse) -> Result<&syn::Ident> {
+    let mut tree = &item.tree;
+    loop {
+        return match tree {
             syn::UseTree::Path(path) => {
-                let rest = validate_path(&path.tree)?;
-                (path.ident.clone(), rest)
+                tree = &path.tree;
+                continue;
             }
-            syn::UseTree::Group(_) => {
-                return Err(error("`use` item must import exactly one type"));
+            syn::UseTree::Group(group) => {
+                let items = &group.items;
+                if items.len() == 1 {
+                    tree = &items[0];
+                    continue;
+                } else {
+                    Err(error("`use` item cannot be a group import of more than one item"))
+                }
             }
-            syn::UseTree::Glob(_) => {
-                return Err(error("`use` item cannot be a glob import"));
-            }
-            syn::UseTree::Name(name) => (name.ident.clone(), Punctuated::new()),
-            syn::UseTree::Rename(rename) => (rename.ident.clone(), Punctuated::new()),
+            syn::UseTree::Glob(_) => Err(error("`use` item cannot be a glob import")),
+            syn::UseTree::Name(name) => Ok(&name.ident),
+            syn::UseTree::Rename(rename) => Ok(&rename.rename),
         };
-
-        segments.push(syn::PathSegment {
-            ident,
-            arguments: syn::PathArguments::None,
-        });
-        Ok(segments)
     }
-
-    let segments = validate_path(&item.tree)?;
-    Ok(syn::Path {
-        leading_colon: item.leading_colon,
-        segments: segments.into_iter().rev().collect(),
-    })
 }
 
-fn parse_config_enum(item: &syn::ItemEnum) -> Result<syn::Path> {
+fn parse_config_enum(item: &syn::ItemEnum) -> Result<&syn::Ident> {
     if !item.variants.is_empty() {
         return Err(error("use an enum with no variants as a parse config"));
     }
-
-    Ok(syn::Path {
-        leading_colon: None,
-        segments: Punctuated::from_iter([syn::PathSegment {
-            ident: item.ident.clone(),
-            arguments: syn::PathArguments::None,
-        }]),
-    })
+    Ok(&item.ident)
 }
