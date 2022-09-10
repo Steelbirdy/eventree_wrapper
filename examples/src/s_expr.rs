@@ -66,8 +66,9 @@ mod config {
     #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
     pub enum ParseConfig {}
 }
-#[eventree_wrapper::parse_config]
-use self::config::ParseConfig;
+use config::ParseConfig;
+
+eventree_wrapper::parse_config!(config::ParseConfig);
 
 impl TreeConfig for ParseConfig {
     type NodeKind = NodeKind;

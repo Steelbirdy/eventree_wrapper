@@ -176,9 +176,10 @@ unsafe impl SyntaxKind for NodeKind {
     }
 }
 
-#[eventree_wrapper::parse_config]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum ParseConfig {}
+
+eventree_wrapper::parse_config!(ParseConfig);
 
 impl TreeConfig for ParseConfig {
     type NodeKind = NodeKind;
