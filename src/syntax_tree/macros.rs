@@ -1,4 +1,5 @@
-#[macro_export(local_inner_macros)]
+#[macro_export]
+#[doc(hidden)]
 macro_rules! pconfig {
     () => {
         __EventreeWrapperParseConfig__
@@ -9,12 +10,12 @@ macro_rules! pconfig {
 macro_rules! node_funcs {
     ($(impl $ty:ty {
         $(
-        fn $func:ident = $inner:ident($inner_ty:ty) $(.$next:ident($($next_arg:expr),* $(,)?))* $(-> $ret:ty)?;
+        $vis:vis fn $func:ident = $inner:ident($inner_ty:ty) $(.$next:ident($($next_arg:expr),* $(,)?))* $(-> $ret:ty)?;
         )+
     })+) => {$(
         impl $ty {
             $(
-            pub fn $func(self, tree: &$crate::eventree::SyntaxTree<$crate::pconfig!()>) -> $crate::node_funcs!(@ret $inner $inner_ty $(=> $ret)?) {
+            $vis fn $func(self, tree: &$crate::eventree::SyntaxTree<$crate::pconfig!()>) -> $crate::node_funcs!(@ret $inner $inner_ty $(=> $ret)?) {
                 $crate::syntax_tree::$inner::<$crate::pconfig!(), Self, $inner_ty>(self, tree) $(. $next($($next_arg),*))*
             }
             )*
@@ -24,15 +25,15 @@ macro_rules! node_funcs {
         $actual
     };
     (@ret nodes $ty:ty) => {
-        impl Iterator<Item = $ty> + '_
+        impl ::std::iter::Iterator<Item = $ty> + '_
     };
     (@ret node $ty:ty) => {
-        Option<$ty>
+        ::std::option::Option<$ty>
     };
     (@ret tokens $ty:ty) => {
-        impl Iterator<Item = $ty> + '_
+        impl ::std::iter::Iterator<Item = $ty> + '_
     };
     (@ret token $ty:ty) => {
-        Option<$ty>
+        ::std::option::Option<$ty>
     };
 }

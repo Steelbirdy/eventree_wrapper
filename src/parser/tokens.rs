@@ -35,7 +35,7 @@ impl<T> SimpleTokens<T> {
 #[cfg(feature = "logos")]
 impl<'a, T> SimpleTokens<T>
 where
-    T: Logos<'a>,
+    T: Logos<'a> + PartialEq,
 {
     #[must_use]
     pub fn tokenize(source: &'a T::Source) -> Self
@@ -57,13 +57,21 @@ where
 
         assert!(len < u32_max_as_usize, "source is too long");
 
-        let (kinds, mut starts): (Vec<_>, Vec<_>) = lexer
-            .spanned()
-            .map(|(kind, span)| {
-                let start = TextSize::from(span.start as u32);
-                (kind, start)
-            })
-            .unzip();
+        let mut kinds = Vec::new();
+        let mut starts = Vec::new();
+
+        let mut tokens = lexer.spanned().peekable();
+        while let Some((kind, span)) = tokens.next() {
+            if kind == T::ERROR {
+                while matches!(tokens.peek(), Some((kind, _)) if *kind == T::ERROR) {
+                    tokens.next();
+                }
+                kinds.push(kind);
+            } else {
+                kinds.push(kind);
+            }
+            starts.push(TextSize::from(span.start as u32));
+        }
         starts.push(TextSize::from(len as u32));
 
         Self::new(kinds.into_boxed_slice(), starts.into_boxed_slice())
